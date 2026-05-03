@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Package, ShoppingBag, Receipt, CircleDollarSign, BarChart3,
   QrCode, Megaphone, Type, Users, MapPin, MessageCircle, ShieldCheck, LogOut, Loader2,
-  Menu, X,
+  Menu, X, MonitorSmartphone, Warehouse, UserCheck, ClipboardList,
 } from "lucide-react";
 import {
   adminLogout, adminMe, adminMyPermissions,
@@ -37,6 +37,15 @@ const NAV: NavSection[] = [
       { to: "/admin/qr-codes", icon: QrCode, label: "QR Codes", perm: "card_create_qr" },
       { to: "/admin/ads", icon: Megaphone, label: "Ads", perm: "card_create_ads" },
       { to: "/admin/ticker", icon: Type, label: "Ticker", perm: "card_create_text" },
+    ],
+  },
+  {
+    title: "Point of Sale",
+    items: [
+      { to: "/admin/pos", icon: MonitorSmartphone, label: "POS Terminal" },
+      { to: "/admin/pos-sales", icon: ClipboardList, label: "Sales History" },
+      { to: "/admin/stock", icon: Warehouse, label: "Stock" },
+      { to: "/admin/pos-customers", icon: UserCheck, label: "POS Customers" },
     ],
   },
   {
