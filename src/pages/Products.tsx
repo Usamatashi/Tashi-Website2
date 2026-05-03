@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ShoppingCart, Package, Info, Loader2, Check } from "lucide-react";
 import { useCart } from "@/lib/cart";
+import { apiFetch } from "@/lib/apiFetch";
 
 type ApiProduct = {
   id: string | number;
@@ -122,7 +123,7 @@ export default function Products() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/products/public", {
+        const res = await apiFetch("/api/products/public", {
           headers: { Accept: "application/json" },
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);

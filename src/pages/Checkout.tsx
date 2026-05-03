@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Lock, ShoppingBag, AlertCircle } from "lucide-react";
 import { useCart, formatPrice } from "@/lib/cart";
+import { apiFetch } from "@/lib/apiFetch";
 
 type PaymentMethod = "cod" | "easypaisa" | "jazzcash";
 
@@ -46,7 +47,7 @@ export default function Checkout() {
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/orders", {
+      const res = await apiFetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

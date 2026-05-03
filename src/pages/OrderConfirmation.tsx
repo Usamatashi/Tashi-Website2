@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { formatPrice } from "@/lib/cart";
+import { apiFetch } from "@/lib/apiFetch";
 
 type OrderItem = {
   productId: string;
@@ -58,7 +59,7 @@ export default function OrderConfirmation() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}`);
+        const res = await apiFetch(`/api/orders/${encodeURIComponent(orderId)}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: Order = await res.json();
         if (!cancelled) setOrder(data);

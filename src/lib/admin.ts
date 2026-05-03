@@ -1,3 +1,5 @@
+import { apiFetch } from "./apiFetch";
+
 export type AdminUser = {
   id: string;
   userId?: number | null;
@@ -56,14 +58,14 @@ const json = (body: unknown, method = "POST"): RequestInit => ({
 
 // ── Auth ─────────────────────────────────────────────────────────────────
 export async function adminLogin(phone: string, password: string) {
-  const res = await fetch("/api/admin/login", json({ phone, password }));
+  const res = await apiFetch("/api/admin/login", json({ phone, password }));
   return handle<{ ok: true; admin: AdminUser }>(res);
 }
 export async function adminLogout() {
-  await fetch("/api/admin/logout", { method: "POST", credentials: "include" });
+  await apiFetch("/api/admin/logout", { method: "POST", credentials: "include" });
 }
 export async function adminMe() {
-  return handle<{ admin: AdminUser }>(await fetch("/api/admin/me", j()));
+  return handle<{ admin: AdminUser }>(await apiFetch("/api/admin/me", j()));
 }
 
 // ── Website orders ───────────────────────────────────────────────────────
@@ -71,16 +73,16 @@ export async function adminListOrders(status?: string) {
   const url = status
     ? `/api/admin/orders?status=${encodeURIComponent(status)}`
     : "/api/admin/orders";
-  return handle<{ orders: AdminOrder[]; count: number }>(await fetch(url, j()));
+  return handle<{ orders: AdminOrder[]; count: number }>(await apiFetch(url, j()));
 }
 export async function adminGetOrder(id: string) {
-  return handle<AdminOrder>(await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, j()));
+  return handle<AdminOrder>(await apiFetch(`/api/admin/orders/${encodeURIComponent(id)}`, j()));
 }
 export async function adminUpdateOrderStatus(id: string, status: string) {
-  return handle<AdminOrder>(await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, json({ status }, "PATCH")));
+  return handle<AdminOrder>(await apiFetch(`/api/admin/orders/${encodeURIComponent(id)}`, json({ status }, "PATCH")));
 }
 export async function adminGetStats() {
-  return handle<AdminStats>(await fetch("/api/admin/stats", j()));
+  return handle<AdminStats>(await apiFetch("/api/admin/stats", j()));
 }
 
 // ── Wholesale (mobile-app) orders ────────────────────────────────────────
@@ -103,14 +105,14 @@ export type WholesaleOrderDetail = WholesaleOrder & {
 };
 export async function adminListWholesaleOrders(status?: string) {
   const url = status ? `/api/admin/wholesale-orders?status=${encodeURIComponent(status)}` : "/api/admin/wholesale-orders";
-  return handle<{ orders: WholesaleOrder[]; count: number }>(await fetch(url, j()));
+  return handle<{ orders: WholesaleOrder[]; count: number }>(await apiFetch(url, j()));
 }
 export async function adminGetWholesaleOrder(docId: string) {
-  return handle<WholesaleOrderDetail>(await fetch(`/api/admin/wholesale-orders/${encodeURIComponent(docId)}`, j()));
+  return handle<WholesaleOrderDetail>(await apiFetch(`/api/admin/wholesale-orders/${encodeURIComponent(docId)}`, j()));
 }
 export async function adminUpdateWholesaleOrderStatus(docId: string, status: string) {
   return handle<{ ok: true; status: string }>(
-    await fetch(`/api/admin/wholesale-orders/${encodeURIComponent(docId)}`, json({ status }, "PATCH")),
+    await apiFetch(`/api/admin/wholesale-orders/${encodeURIComponent(docId)}`, json({ status }, "PATCH")),
   );
 }
 
@@ -122,21 +124,21 @@ export type AdminPermissions = {
   card_payments: boolean; card_commission: boolean;
 };
 export async function adminMyPermissions() {
-  return handle<AdminPermissions>(await fetch("/api/admin/admin-user-settings/me", j()));
+  return handle<AdminPermissions>(await apiFetch("/api/admin/admin-user-settings/me", j()));
 }
 export async function adminGlobalSettings() {
-  return handle<Record<string, boolean>>(await fetch("/api/admin/admin-settings", j()));
+  return handle<Record<string, boolean>>(await apiFetch("/api/admin/admin-settings", j()));
 }
 export async function adminUpdateGlobalSettings(s: Record<string, boolean>) {
-  return handle<Record<string, boolean>>(await fetch("/api/admin/admin-settings", json(s, "PUT")));
+  return handle<Record<string, boolean>>(await apiFetch("/api/admin/admin-settings", json(s, "PUT")));
 }
 export async function adminListAdminSettings() {
   return handle<Array<{ id: number; name: string | null; phone: string; role: string; settings: AdminPermissions }>>(
-    await fetch("/api/admin/admin-user-settings", j()),
+    await apiFetch("/api/admin/admin-user-settings", j()),
   );
 }
 export async function adminUpdateAdminSettings(userId: number, s: Partial<AdminPermissions>) {
-  return handle<AdminPermissions>(await fetch(`/api/admin/admin-user-settings/${userId}`, json(s, "PUT")));
+  return handle<AdminPermissions>(await apiFetch(`/api/admin/admin-user-settings/${userId}`, json(s, "PUT")));
 }
 
 // ── Products (admin) ─────────────────────────────────────────────────────
@@ -146,16 +148,16 @@ export type AdminProduct = {
   imageUrl: string | null; diagramUrl: string | null; createdAt: string | null;
 };
 export async function adminListProducts() {
-  return handle<AdminProduct[]>(await fetch("/api/products/admin", j()));
+  return handle<AdminProduct[]>(await apiFetch("/api/products/admin", j()));
 }
 export async function adminCreateProduct(body: Partial<AdminProduct> & { imageBase64?: string | null; diagramBase64?: string | null }) {
-  return handle<AdminProduct>(await fetch("/api/products/admin", json(body)));
+  return handle<AdminProduct>(await apiFetch("/api/products/admin", json(body)));
 }
 export async function adminUpdateProduct(id: number, body: Partial<AdminProduct> & { imageBase64?: string | null; diagramBase64?: string | null }) {
-  return handle<AdminProduct>(await fetch(`/api/products/admin/${id}`, json(body, "PUT")));
+  return handle<AdminProduct>(await apiFetch(`/api/products/admin/${id}`, json(body, "PUT")));
 }
 export async function adminDeleteProduct(id: number) {
-  return handle<{ success: true }>(await fetch(`/api/products/admin/${id}`, { method: "DELETE", credentials: "include" }));
+  return handle<{ success: true }>(await apiFetch(`/api/products/admin/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
 // ── Users ────────────────────────────────────────────────────────────────
@@ -165,16 +167,16 @@ export type AppUser = {
   points: number; createdAt: string | null;
 };
 export async function adminListUsers() {
-  return handle<AppUser[]>(await fetch("/api/admin/users", j()));
+  return handle<AppUser[]>(await apiFetch("/api/admin/users", j()));
 }
 export async function adminCreateUser(body: { phone: string; password: string; role: string; name?: string; email?: string; city?: string; regionId?: number | null }) {
-  return handle<AppUser>(await fetch("/api/admin/users", json(body)));
+  return handle<AppUser>(await apiFetch("/api/admin/users", json(body)));
 }
 export async function adminUpdateUser(id: number, body: Partial<AppUser> & { password?: string }) {
-  return handle<AppUser>(await fetch(`/api/admin/users/${id}`, json(body, "PUT")));
+  return handle<AppUser>(await apiFetch(`/api/admin/users/${id}`, json(body, "PUT")));
 }
 export async function adminDeleteUser(id: number) {
-  return handle<{ success: true }>(await fetch(`/api/admin/users/${id}`, { method: "DELETE", credentials: "include" }));
+  return handle<{ success: true }>(await apiFetch(`/api/admin/users/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
 // ── QR Codes ─────────────────────────────────────────────────────────────
@@ -183,10 +185,10 @@ export type QRCode = {
   points: number; status: string; createdAt: string | null;
 };
 export async function adminListQRCodes() {
-  return handle<QRCode[]>(await fetch("/api/admin/qr-codes", j()));
+  return handle<QRCode[]>(await apiFetch("/api/admin/qr-codes", j()));
 }
 export async function adminCreateQRCode(body: { qrNumber: string; productId: number }) {
-  return handle<QRCode>(await fetch("/api/admin/qr-codes", json(body)));
+  return handle<QRCode>(await apiFetch("/api/admin/qr-codes", json(body)));
 }
 
 // ── Claims ───────────────────────────────────────────────────────────────
@@ -201,23 +203,23 @@ export type ClaimScan = {
   adminVerified: boolean | null; qrNumber: string; productName: string;
 };
 export async function adminListClaims() {
-  return handle<Claim[]>(await fetch("/api/admin/claims", j()));
+  return handle<Claim[]>(await apiFetch("/api/admin/claims", j()));
 }
 export async function adminClaimScans(id: number) {
-  return handle<ClaimScan[]>(await fetch(`/api/admin/claims/${id}/scans`, j()));
+  return handle<ClaimScan[]>(await apiFetch(`/api/admin/claims/${id}/scans`, j()));
 }
 export async function adminVerifyQRForClaim(id: number, qrNumber: string) {
   return handle<{ scanId: number; pointsEarned: number; verifiedPoints: number }>(
-    await fetch(`/api/admin/claims/${id}/verify-qr`, json({ qrNumber })),
+    await apiFetch(`/api/admin/claims/${id}/verify-qr`, json({ qrNumber })),
   );
 }
 export async function adminMarkScanMissing(id: number, scanId: number) {
   return handle<{ scanId: number; verifiedPoints: number }>(
-    await fetch(`/api/admin/claims/${id}/mark-missing`, json({ scanId })),
+    await apiFetch(`/api/admin/claims/${id}/mark-missing`, json({ scanId })),
   );
 }
 export async function adminMarkClaimReceived(id: number) {
-  return handle<Claim>(await fetch(`/api/admin/claims/${id}`, json({ status: "received" }, "PATCH")));
+  return handle<Claim>(await apiFetch(`/api/admin/claims/${id}`, json({ status: "received" }, "PATCH")));
 }
 
 // ── Payments ─────────────────────────────────────────────────────────────
@@ -233,20 +235,20 @@ export type Payment = {
   receivedBy: number | null; collectorName: string | null; collectorPhone: string | null;
 };
 export async function adminRetailerBalances() {
-  return handle<RetailerBalance[]>(await fetch("/api/admin/payments/retailer-balances", j()));
+  return handle<RetailerBalance[]>(await apiFetch("/api/admin/payments/retailer-balances", j()));
 }
 export async function adminPendingPaymentCount() {
-  return handle<{ count: number }>(await fetch("/api/admin/payments/pending-count", j()));
+  return handle<{ count: number }>(await apiFetch("/api/admin/payments/pending-count", j()));
 }
 export async function adminListPayments() {
-  return handle<Payment[]>(await fetch("/api/admin/payments", j()));
+  return handle<Payment[]>(await apiFetch("/api/admin/payments", j()));
 }
 export async function adminCreatePayment(body: { retailerId: number; amount: number; notes?: string }) {
-  return handle<Payment>(await fetch("/api/admin/payments", json(body)));
+  return handle<Payment>(await apiFetch("/api/admin/payments", json(body)));
 }
 export async function adminVerifyPayment(id: number) {
   return handle<{ id: number; status: string; verifiedAt: string }>(
-    await fetch(`/api/admin/payments/${id}/verify`, json({}, "PATCH")),
+    await apiFetch(`/api/admin/payments/${id}/verify`, json({}, "PATCH")),
   );
 }
 
@@ -281,66 +283,66 @@ export type SalesmanSales = {
   alreadyApproved: boolean; approvedAt?: string; commissionAmount?: number; commissionPercentage?: number;
 };
 export async function adminSalesmanCommissions() {
-  return handle<SalesmanCommissionRow[]>(await fetch("/api/admin/commission/salesman-commissions", j()));
+  return handle<SalesmanCommissionRow[]>(await apiFetch("/api/admin/commission/salesman-commissions", j()));
 }
 export async function adminMonthlyTotals() {
-  return handle<MonthlyTotals>(await fetch("/api/admin/commission/monthly-totals", j()));
+  return handle<MonthlyTotals>(await apiFetch("/api/admin/commission/monthly-totals", j()));
 }
 export async function adminSalesmanMonths(salesmanId: number) {
-  return handle<SalesmanMonths>(await fetch(`/api/admin/commission/salesman-months/${salesmanId}`, j()));
+  return handle<SalesmanMonths>(await apiFetch(`/api/admin/commission/salesman-months/${salesmanId}`, j()));
 }
 export async function adminSalesmanSales(salesmanId: number, year?: number, month?: number) {
   const qs = year && month ? `?year=${year}&month=${month}` : "";
-  return handle<SalesmanSales>(await fetch(`/api/admin/commission/salesman-sales/${salesmanId}${qs}`, j()));
+  return handle<SalesmanSales>(await apiFetch(`/api/admin/commission/salesman-sales/${salesmanId}${qs}`, j()));
 }
 export async function adminApproveCommission(body: { salesmanId: number; percentage: number; salesAmount: number; periodFrom: string; periodTo?: string }) {
-  return handle(await fetch("/api/admin/commission", json(body)));
+  return handle(await apiFetch("/api/admin/commission", json(body)));
 }
 
 // ── Ads ──────────────────────────────────────────────────────────────────
 export type Ad = { id: number; mediaType: string; title: string | null; createdAt: string | null; mediaUrl: string };
-export async function adminListAds() { return handle<Ad[]>(await fetch("/api/admin/ads", j())); }
+export async function adminListAds() { return handle<Ad[]>(await apiFetch("/api/admin/ads", j())); }
 export async function adminCreateAd(body: { imageBase64?: string; mediaType?: string; title?: string }) {
-  return handle<Ad>(await fetch("/api/admin/ads", json(body)));
+  return handle<Ad>(await apiFetch("/api/admin/ads", json(body)));
 }
 export async function adminUploadAdFile(file: File, mediaType: string, title?: string) {
   const fd = new FormData();
   fd.append("file", file);
   fd.append("mediaType", mediaType);
   if (title) fd.append("title", title);
-  return handle<Ad>(await fetch("/api/admin/ads", { method: "POST", credentials: "include", body: fd }));
+  return handle<Ad>(await apiFetch("/api/admin/ads", { method: "POST", credentials: "include", body: fd }));
 }
 export async function adminDeleteAd(id: number) {
-  return handle<{ success: true }>(await fetch(`/api/admin/ads/${id}`, { method: "DELETE", credentials: "include" }));
+  return handle<{ success: true }>(await apiFetch(`/api/admin/ads/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
 // ── Ticker ───────────────────────────────────────────────────────────────
 export type TickerItem = { id: number; text: string; createdAt: string | null };
-export async function adminListTicker() { return handle<TickerItem[]>(await fetch("/api/admin/ticker", j())); }
+export async function adminListTicker() { return handle<TickerItem[]>(await apiFetch("/api/admin/ticker", j())); }
 export async function adminAddTicker(text: string) {
-  return handle<TickerItem>(await fetch("/api/admin/ticker", json({ text })));
+  return handle<TickerItem>(await apiFetch("/api/admin/ticker", json({ text })));
 }
 export async function adminDeleteTicker(id: number) {
-  return handle<{ success: true }>(await fetch(`/api/admin/ticker/${id}`, { method: "DELETE", credentials: "include" }));
+  return handle<{ success: true }>(await apiFetch(`/api/admin/ticker/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
 // ── Regions ──────────────────────────────────────────────────────────────
 export type Region = { id: number; name: string };
-export async function adminListRegions() { return handle<Region[]>(await fetch("/api/admin/regions", j())); }
+export async function adminListRegions() { return handle<Region[]>(await apiFetch("/api/admin/regions", j())); }
 export async function adminCreateRegion(name: string) {
-  return handle<Region>(await fetch("/api/admin/regions", json({ name })));
+  return handle<Region>(await apiFetch("/api/admin/regions", json({ name })));
 }
 export async function adminDeleteRegion(id: number) {
-  return handle<{ success: true }>(await fetch(`/api/admin/regions/${id}`, { method: "DELETE", credentials: "include" }));
+  return handle<{ success: true }>(await apiFetch(`/api/admin/regions/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
 // ── WhatsApp Contacts ────────────────────────────────────────────────────
 export type WhatsappContacts = { mechanic: string; salesman: string; retailer: string };
 export async function adminGetWhatsappContacts() {
-  return handle<WhatsappContacts>(await fetch("/api/admin/whatsapp-contacts", j()));
+  return handle<WhatsappContacts>(await apiFetch("/api/admin/whatsapp-contacts", j()));
 }
 export async function adminUpdateWhatsappContacts(c: Partial<WhatsappContacts>) {
-  return handle<WhatsappContacts>(await fetch("/api/admin/whatsapp-contacts", json(c, "PUT")));
+  return handle<WhatsappContacts>(await apiFetch("/api/admin/whatsapp-contacts", json(c, "PUT")));
 }
 
 // ── Constants & helpers ──────────────────────────────────────────────────
