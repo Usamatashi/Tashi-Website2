@@ -28,10 +28,6 @@ import AdminRegions from "@/pages/AdminRegions";
 import AdminWhatsapp from "@/pages/AdminWhatsapp";
 import AdminSuperConfig from "@/pages/AdminSuperConfig";
 import AdminTeam from "@/pages/AdminTeam";
-import AdminPOS from "@/pages/AdminPOS";
-import AdminStock from "@/pages/AdminStock";
-import AdminPOSCustomers from "@/pages/AdminPOSCustomers";
-import AdminPOSSales from "@/pages/AdminPOSSales";
 
 export default function App() {
   const location = useLocation();
@@ -59,10 +55,6 @@ export default function App() {
           <Route path="whatsapp" element={<AdminWhatsapp />} />
           <Route path="super-config" element={<AdminSuperConfig />} />
           <Route path="team" element={<AdminTeam />} />
-          <Route path="pos" element={<AdminPOS />} />
-          <Route path="stock" element={<AdminStock />} />
-          <Route path="pos-customers" element={<AdminPOSCustomers />} />
-          <Route path="pos-sales" element={<AdminPOSSales />} />
         </Route>
       </Routes>
     );

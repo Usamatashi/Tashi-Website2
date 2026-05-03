@@ -19,9 +19,6 @@ import adminSettingsRouter from "./routes/admin-settings.js";
 import adminUserSettingsRouter from "./routes/admin-user-settings.js";
 import whatsappContactsRouter from "./routes/whatsapp-contacts.js";
 import teamRouter from "./routes/team.js";
-import posRouter from "./routes/pos.js";
-import stockRouter from "./routes/stock.js";
-import posCustomersRouter from "./routes/pos-customers.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -74,9 +71,6 @@ app.use("/api/admin/admin-settings", adminSettingsRouter);
 app.use("/api/admin/admin-user-settings", adminUserSettingsRouter);
 app.use("/api/admin/whatsapp-contacts", whatsappContactsRouter);
 app.use("/api/admin/team", teamRouter);
-app.use("/api/admin/pos/sales", posRouter);
-app.use("/api/admin/pos/stock", stockRouter);
-app.use("/api/admin/pos/customers", posCustomersRouter);
 
 const isProd = process.env.NODE_ENV === "production";
 

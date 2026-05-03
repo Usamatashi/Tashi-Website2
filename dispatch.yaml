@@ -1,5 +1,0 @@
-dispatch:
-  - url: "tashibrakes.com/*"
-    service: website
-  - url: "www.tashibrakes.com/*"
-    service: website
