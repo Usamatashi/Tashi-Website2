@@ -1,0 +1,14 @@
+.gcloudignore
+.git
+.gitignore
+node_modules
+.DS_Store
+.env
+.env.local
+.env.*.local
+.env.production
+*.log
+.vite
+.cache
+reference-app/
+attached_assets/
