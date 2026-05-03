@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tashi Auto Parts – Disc Pads Banner</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;900&family=Barlow:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --red:#e62020;--red2:#ff3a3a;--dark:#0a0a0c;--mid:#141418;
+    --light:#f0ede8;--muted:#888;--track:#1a1a20;
+  }
+  body{background:#000;overflow:hidden;height:100vh;font-family:'Barlow Condensed',sans-serif}
+
+  /* ── SCENE ── */
+  .scene{
+    position:relative;width:100vw;height:100vh;
+    background:var(--dark);overflow:hidden;perspective:1200px;
+  }
+
+  /* ── SKY GRADIENT ── */
+  .sky{
+    position:absolute;inset:0 0 45% 0;
+    background:linear-gradient(180deg,#0d0d15 0%,#1a0a0a 60%,#2a0a0a 100%);
+  }
+
+  /* ── STARS ── */
+  .stars{position:absolute;inset:0 0 45% 0;overflow:hidden}
+  .stars span{
+    position:absolute;border-radius:50%;background:#fff;
+    animation:twinkle var(--d,3s) var(--delay,0s) infinite alternate;
+  }
+
+  @keyframes twinkle{0%{opacity:.2}100%{opacity:.9}}
+
+  /* ── ROAD ── */
+  .road{
+    position:absolute;bottom:0;left:0;right:0;height:45%;
+    background:linear-gradient(180deg,#1c1c22 0%,#111114 100%);
+    transform-style:preserve-3d;overflow:hidden;
+  }
+  /* perspective lines */
+  .road::before{
+    content:'';position:absolute;inset:0;
+    background:
+      linear-gradient(90deg,transparent 49.5%,#2a2a35 49.5%,#2a2a35 50.5%,transparent 50.5%);
+    animation:roadScroll 0.4s linear infinite;
+  }
+  .road-lines{
+    position:absolute;inset:0;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px,transparent 40px,
+        rgba(255,255,255,0.12) 40px,rgba(255,255,255,0.12) 80px
+      );
+    animation:roadScroll 0.4s linear infinite;
+  }
+  @keyframes roadScroll{0%{background-position:0 0}100%{background-position:0 80px}}
+
+  /* perspective side lines */
+  .road-perspective{
+    position:absolute;inset:0;
+    background:
+      linear-gradient(to bottom right,#0a0a10 0%,transparent 50%),
+      linear-gradient(to bottom left,#0a0a10 0%,transparent 50%);
+    pointer-events:none;
+  }
+
+  /* ── HORIZON GLOW ── */
+  .horizon{
+    position:absolute;left:0;right:0;
+    top:55%;height:3px;
+    background:linear-gradient(90deg,transparent 0%,var(--red) 30%,#ff6b00 50%,var(--red) 70%,transparent 100%);
+    filter:blur(2px);
+    box-shadow:0 0 30px 6px rgba(230,32,32,0.6);
+  }
+
+  /* ── CITY SILHOUETTE ── */
+  .city{
+    position:absolute;bottom:45%;left:0;right:0;
+    height:80px;
+    background:
+      linear-gradient(0deg,#0d0d15,transparent 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='80'%3E%3Crect x='10' y='30' width='18' height='50' fill='%230d0d18'/%3E%3Crect x='35' y='15' width='25' height='65' fill='%230d0d18'/%3E%3Crect x='65' y='25' width='15' height='55' fill='%230d0d18'/%3E%3Crect x='85' y='10' width='30' height='70' fill='%230d0d18'/%3E%3Crect x='120' y='35' width='20' height='45' fill='%230d0d18'/%3E%3Crect x='145' y='5' width='35' height='75' fill='%230d0d18'/%3E%3Crect x='185' y='20' width='22' height='60' fill='%230d0d18'/%3E%3Crect x='215' y='30' width='18' height='50' fill='%230d0d18'/%3E%3Crect x='240' y='8' width='28' height='72' fill='%230d0d18'/%3E%3Crect x='275' y='25' width='16' height='55' fill='%230d0d18'/%3E%3Crect x='300' y='18' width='32' height='62' fill='%230d0d18'/%3E%3Crect x='340' y='35' width='20' height='45' fill='%230d0d18'/%3E%3Crect x='368' y='12' width='26' height='68' fill='%230d0d18'/%3E%3Crect x='400' y='28' width='18' height='52' fill='%230d0d18'/%3E%3Crect x='425' y='6' width='30' height='74' fill='%230d0d18'/%3E%3Crect x='462' y='22' width='22' height='58' fill='%230d0d18'/%3E%3Crect x='492' y='32' width='16' height='48' fill='%230d0d18'/%3E%3Crect x='515' y='14' width='28' height='66' fill='%230d0d18'/%3E%3Crect x='550' y='24' width='20' height='56' fill='%230d0d18'/%3E%3Crect x='578' y='8' width='34' height='72' fill='%230d0d18'/%3E%3Crect x='620' y='30' width='18' height='50' fill='%230d0d18'/%3E%3Crect x='645' y='16' width='26' height='64' fill='%230d0d18'/%3E%3Crect x='678' y='22' width='22' height='58' fill='%230d0d18'/%3E%3Crect x='708' y='5' width='30' height='75' fill='%230d0d18'/%3E%3Crect x='745' y='28' width='18' height='52' fill='%230d0d18'/%3E%3Crect x='768' y='18' width='24' height='62' fill='%230d0d18'/%3E%3C/svg%3E") repeat-x bottom;
+  }
+
+  /* ── CAR WRAPPER (animated) ── */
+  .car-wrap{
+    position:absolute;
+    bottom:35%;left:-30%;
+    width:55%;
+    animation:carEntry 1.8s cubic-bezier(.2,.8,.3,1) forwards,
+              carBrake 0.5s cubic-bezier(.05,.9,.2,1) 1.9s forwards;
+  }
+  @keyframes carEntry{
+    0%{left:-60%;transform:translateX(0) scale(1.15)}
+    100%{left:5%;transform:translateX(0) scale(1)}
+  }
+  @keyframes carBrake{
+    0%{left:5%}
+    60%{left:22%;transform:rotate(-1.5deg) scaleY(.97)}
+    80%{transform:rotate(0.5deg) scaleY(1.01)}
+    100%{left:20%;transform:rotate(0) scaleY(1)}
+  }
+
+  /* motion blur on the car before braking */
+  .car-wrap.moving{filter:blur(2px)}
+
+  /* ── CAR SVG ── */
+  .car-svg{width:100%;display:block;filter:drop-shadow(0 20px 40px rgba(0,0,0,.8))}
+
+  /* ── BRAKE LIGHTS ── */
+  .brake-lights{
+    position:absolute;right:2%;bottom:38%;
+    width:5%;
+    opacity:0;
+    animation:brakeOn 0.3s ease 1.85s forwards;
+  }
+  @keyframes brakeOn{to{opacity:1}}
+
+  .brake-glow{
+    width:100%;padding-bottom:200%;
+    background:radial-gradient(ellipse at 50% 50%,rgba(255,40,20,1) 0%,rgba(255,0,0,.7) 30%,transparent 70%);
+    border-radius:50%;
+    animation:brakePulse 0.15s ease 1.85s infinite alternate;
+    filter:blur(3px);
+  }
+  @keyframes brakePulse{0%{opacity:.8;transform:scale(1)}100%{opacity:1;transform:scale(1.2)}}
+
+  /* ── TIRE SKID MARKS ── */
+  .skids{
+    position:absolute;bottom:36%;left:0;right:0;height:8%;
+    opacity:0;
+    animation:skidAppear 0.3s ease 1.85s forwards;
+  }
+  .skid-line{
+    position:absolute;height:4px;border-radius:2px;
+    background:linear-gradient(90deg,transparent 0%,rgba(30,30,30,.9) 30%,rgba(50,50,50,.95) 100%);
+  }
+  .skid-line:nth-child(1){bottom:60%;left:0;width:22%;top:auto}
+  .skid-line:nth-child(2){bottom:20%;left:2%;width:20%}
+  @keyframes skidAppear{to{opacity:1}}
+
+  /* ── SMOKE ── */
+  .smoke-wrap{
+    position:absolute;bottom:35%;left:18%;
+    opacity:0;
+    animation:smokeIn 0.5s ease 1.9s forwards;
+  }
+  .smoke{
+    width:60px;height:60px;border-radius:50%;
+    position:absolute;
+    background:rgba(180,180,190,0.25);
+    filter:blur(12px);
+    animation:smokeDrift var(--sd,2s) var(--sdd,0s) ease-out infinite;
+  }
+  @keyframes smokeIn{to{opacity:1}}
+  @keyframes smokeDrift{
+    0%{transform:translate(0,0) scale(1);opacity:.4}
+    100%{transform:translate(var(--dx,30px),var(--dy,-50px)) scale(2.5);opacity:0}
+  }
+
+  /* ── DISC PAD SPOTLIGHT ── */
+  .disc-reveal{
+    position:absolute;
+    bottom:34%;left:27%;
+    width:18%;padding-bottom:18%;
+    opacity:0;
+    animation:discReveal 0.6s cubic-bezier(.2,.8,.4,1) 2.1s forwards;
+    transform-origin:center bottom;
+  }
+  @keyframes discReveal{
+    0%{opacity:0;transform:scale(.5) translateY(20px)}
+    70%{opacity:1;transform:scale(1.05) translateY(-5px)}
+    100%{opacity:1;transform:scale(1) translateY(0)}
+  }
+  .disc-svg{width:100%;display:block}
+
+  /* spotlight halo behind disc */
+  .disc-halo{
+    position:absolute;inset:-40%;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(230,32,32,0.35) 0%,transparent 65%);
+    animation:haloBreath 1.5s ease 2.7s infinite alternate;
+    filter:blur(8px);
+  }
+  @keyframes haloBreath{0%{transform:scale(1)}100%{transform:scale(1.15)}}
+
+  /* ── COPY ── */
+  .headline{
+    position:absolute;top:12%;right:6%;
+    text-align:right;
+    opacity:0;
+    animation:copyIn 0.7s cubic-bezier(.2,.8,.4,1) 2.4s forwards;
+  }
+  @keyframes copyIn{
+    0%{opacity:0;transform:translateX(30px)}
+    100%{opacity:1;transform:translateX(0)}
+  }
+  .eyebrow{
+    font-family:'Barlow',sans-serif;
+    font-size:clamp(11px,1.4vw,16px);font-weight:600;
+    letter-spacing:.25em;color:var(--red2);
+    text-transform:uppercase;margin-bottom:8px;
+  }
+  .title{
+    font-size:clamp(40px,7vw,96px);
+    font-weight:900;line-height:.92;
+    color:#fff;text-transform:uppercase;
+    text-shadow:0 0 60px rgba(230,32,32,.4);
+    margin-bottom:12px;
+  }
+  .title span{color:var(--red2);display:block}
+  .subtitle{
+    font-size:clamp(14px,2vw,22px);font-weight:400;
+    color:rgba(255,255,255,.55);letter-spacing:.05em;
+    margin-bottom:24px;
+  }
+  .cta{
+    display:inline-block;
+    padding:clamp(10px,1.2vw,14px) clamp(24px,3vw,40px);
+    background:var(--red);color:#fff;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:clamp(13px,1.5vw,18px);font-weight:700;
+    letter-spacing:.15em;text-transform:uppercase;
+    border:none;cursor:pointer;
+    clip-path:polygon(0 0,calc(100% - 12px) 0,100% 100%,0 100%);
+    transition:background .2s;
+    text-decoration:none;
+  }
+  .cta:hover{background:#ff2a2a}
+
+  /* disc pad label */
+  .disc-label{
+    position:absolute;
+    bottom:18%;left:29%;
+    opacity:0;
+    animation:copyIn 0.5s ease 2.7s forwards;
+    display:flex;align-items:center;gap:10px;
+  }
+  .disc-label-line{
+    width:clamp(40px,5vw,80px);height:1px;
+    background:linear-gradient(90deg,transparent,var(--red2));
+  }
+  .disc-label-text{
+    font-size:clamp(10px,1.2vw,14px);font-weight:600;
+    letter-spacing:.2em;color:var(--red2);
+    text-transform:uppercase;white-space:nowrap;
+  }
+
+  /* speed lines */
+  .speed-lines{
+    position:absolute;top:0;left:0;right:0;bottom:0;
+    pointer-events:none;overflow:hidden;opacity:0;
+    animation:speedIn 0.2s ease 0s forwards,speedOut 0.4s ease 1.85s forwards;
+  }
+  @keyframes speedIn{to{opacity:1}}
+  @keyframes speedOut{to{opacity:0}}
+  .speed-line{
+    position:absolute;height:1px;
+    background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.3) 50%,transparent 100%);
+    left:0;width:100%;
+  }
+
+  /* particles on brake */
+  .particles{position:absolute;inset:0;pointer-events:none}
+  .particle{
+    position:absolute;width:4px;height:4px;border-radius:50%;
+    background:var(--red2);
+    opacity:0;
+    animation:particleFly var(--pd,0.8s) var(--pdd,2s) ease-out forwards;
+  }
+  @keyframes particleFly{
+    0%{opacity:1;transform:translate(0,0) scale(1)}
+    100%{opacity:0;transform:translate(var(--px,20px),var(--py,-40px)) scale(0)}
+  }
+
+  /* overlay vignette */
+  .vignette{
+    position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,.65) 100%);
+  }
+</style>
+</head>
+<body>
+<div class="scene">
+
+  <!-- Sky -->
+  <div class="sky"></div>
+
+  <!-- Stars -->
+  <div class="stars" id="stars"></div>
+
+  <!-- City silhouette -->
+  <div class="city"></div>
+
+  <!-- Horizon glow -->
+  <div class="horizon"></div>
+
+  <!-- Speed lines (visible only during approach) -->
+  <div class="speed-lines" id="speedLines"></div>
+
+  <!-- Road -->
+  <div class="road">
+    <div class="road-lines"></div>
+    <div class="road-perspective"></div>
+  </div>
+
+  <!-- Skid marks -->
+  <div class="skids">
+    <div class="skid-line"></div>
+    <div class="skid-line"></div>
+  </div>
+
+  <!-- Smoke -->
+  <div class="smoke-wrap">
+    <div class="smoke" style="--sd:2.2s;--sdd:0s;--dx:20px;--dy:-50px;left:0;top:0"></div>
+    <div class="smoke" style="--sd:1.8s;--sdd:.4s;--dx:-10px;--dy:-60px;left:20px;top:10px;width:40px;height:40px"></div>
+    <div class="smoke" style="--sd:2.5s;--sdd:.7s;--dx:40px;--dy:-40px;left:-10px;top:5px;width:50px;height:50px"></div>
+  </div>
+
+  <!-- Brake lights glow -->
+  <div class="brake-lights">
+    <div class="brake-glow"></div>
+  </div>
+
+  <!-- CAR -->
+  <div class="car-wrap" id="carWrap">
+    <svg class="car-svg" viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bodyGrad" cx="50%" cy="30%" r="60%">
+          <stop offset="0%" stop-color="#2a2a2a"/>
+          <stop offset="100%" stop-color="#111"/>
+        </radialGradient>
+        <radialGradient id="wheelGrad" cx="40%" cy="35%" r="55%">
+          <stop offset="0%" stop-color="#444"/>
+          <stop offset="100%" stop-color="#111"/>
+        </radialGradient>
+        <radialGradient id="discGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#888"/>
+          <stop offset="60%" stop-color="#555"/>
+          <stop offset="100%" stop-color="#222"/>
+        </radialGradient>
+        <radialGradient id="brakeHeat" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff4400" stop-opacity="0.9"/>
+          <stop offset="100%" stop-color="#ff4400" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="4" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="glowStrong">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <clipPath id="bodyClip">
+          <path d="M80,200 Q85,120 200,100 Q280,60 420,55 Q540,50 620,80 Q700,100 740,130 L800,200 Z"/>
+        </clipPath>
+      </defs>
+
+      <!-- Shadow under car -->
+      <ellipse cx="450" cy="340" rx="340" ry="22" fill="rgba(0,0,0,0.55)" filter="url(#glow)"/>
+
+      <!-- Car body lower -->
+      <path d="M60,260 Q62,235 80,230 L820,230 Q840,230 845,260 L850,290 Q850,310 830,315 L70,315 Q50,315 50,295 Z"
+            fill="url(#bodyGrad)" stroke="#333" stroke-width="1"/>
+
+      <!-- Car body upper -->
+      <path d="M80,230 Q85,160 150,130 Q200,90 340,75 Q430,60 510,62 Q600,62 660,85 Q730,110 760,145 L810,200 L820,230 Z"
+            fill="url(#bodyGrad)" stroke="#2a2a2a" stroke-width="1.5"/>
+
+      <!-- Roof highlight -->
+      <path d="M200,100 Q300,65 440,62 Q560,60 640,90 L700,120 Q620,95 510,90 Q380,88 260,110 Z"
+            fill="rgba(255,255,255,0.06)"/>
+
+      <!-- Windshield -->
+      <path d="M310,88 Q340,68 430,63 L500,63 Q560,63 600,78 L640,108 Q580,92 500,88 Q420,85 355,100 Z"
+            fill="rgba(100,180,255,0.18)" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>
+      <!-- windshield inner reflection -->
+      <path d="M340,90 Q380,72 450,70 L510,70 Q555,70 590,82 L570,88 Q540,78 490,76 Q430,74 380,90 Z"
+            fill="rgba(255,255,255,0.07)"/>
+
+      <!-- Rear window -->
+      <path d="M650,90 Q680,100 720,130 L760,155 Q720,140 680,118 Z"
+            fill="rgba(80,140,200,0.14)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+      <!-- Side window -->
+      <path d="M330,100 Q380,82 450,79 L520,80 Q570,80 600,92 L610,118 Q570,108 490,106 Q400,105 340,120 Z"
+            fill="rgba(80,140,200,0.12)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+      <!-- Door lines -->
+      <line x1="450" y1="95" x2="452" y2="220" stroke="rgba(255,255,255,0.06)" stroke-width="1.5"/>
+      <line x1="300" y1="108" x2="302" y2="222" stroke="rgba(255,255,255,0.06)" stroke-width="1.5"/>
+
+      <!-- Handle front -->
+      <rect x="340" y="170" width="35" height="7" rx="3" fill="#333" stroke="#555" stroke-width="0.5"/>
+      <!-- Handle rear -->
+      <rect x="510" y="168" width="35" height="7" rx="3" fill="#333" stroke="#555" stroke-width="0.5"/>
+
+      <!-- Side skirt -->
+      <path d="M80,285 L830,285 L845,305 Q845,316 830,316 L70,316 Q52,316 52,305 Z"
+            fill="#0d0d0d" stroke="#2a2a2a" stroke-width="1"/>
+      <!-- skirt accent stripe -->
+      <line x1="82" y1="299" x2="825" y2="299" stroke="var(--red,#e62020)" stroke-width="2" opacity="0.7"/>
+
+      <!-- Front bumper -->
+      <path d="M52,270 Q48,285 48,300 L70,316 L80,230 Z"
+            fill="#141414" stroke="#2a2a2a" stroke-width="1"/>
+      <!-- Front light -->
+      <path d="M55,245 L80,240 L82,258 L56,260 Z" fill="#ffe8b0" opacity="0.85" filter="url(#glow)"/>
+      <path d="M52,243 L56,260 L48,260 Z" fill="rgba(255,220,100,0.5)" filter="url(#glow)"/>
+
+      <!-- Rear bumper -->
+      <path d="M848,270 Q855,285 855,305 L830,316 L820,230 Z"
+            fill="#141414" stroke="#2a2a2a" stroke-width="1"/>
+      <!-- Rear brake light (RED) -->
+      <path d="M850,248 L825,244 L824,265 L850,265 Z" fill="#ff2000" opacity="0.95" filter="url(#glowStrong)" id="brakeLight"/>
+      <!-- rear fog light -->
+      <rect x="825" y="272" width="24" height="10" rx="2" fill="#ff2000" opacity="0.6" filter="url(#glow)" id="fogLight"/>
+
+      <!-- Exhaust -->
+      <ellipse cx="790" cy="316" rx="14" ry="7" fill="#111" stroke="#333" stroke-width="1"/>
+      <ellipse cx="790" cy="316" rx="9" ry="4" fill="#0a0a0a"/>
+
+      <!-- FRONT WHEEL ASSEMBLY -->
+      <g id="frontWheel">
+        <!-- wheel well -->
+        <path d="M100,230 Q90,310 110,320 L250,320 Q270,310 265,230 Z" fill="#0d0d0d"/>
+        <!-- tyre -->
+        <circle cx="182" cy="302" r="72" fill="#111" stroke="#222" stroke-width="2"/>
+        <!-- tyre detail -->
+        <circle cx="182" cy="302" r="68" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+        <!-- tread marks -->
+        <circle cx="182" cy="302" r="65" fill="none" stroke="#151515" stroke-width="6" stroke-dasharray="8 6"/>
+        <!-- rim -->
+        <circle cx="182" cy="302" r="50" fill="url(#wheelGrad)" stroke="#444" stroke-width="2"/>
+        <!-- DISC ROTOR -->
+        <circle cx="182" cy="302" r="36" fill="url(#discGrad)" stroke="#555" stroke-width="1.5"/>
+        <!-- rotor vents -->
+        <circle cx="182" cy="302" r="28" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4 3"/>
+        <!-- rotor slots -->
+        <line x1="182" y1="268" x2="182" y2="276" stroke="#777" stroke-width="2"/>
+        <line x1="182" y1="326" x2="182" y2="334" stroke="#777" stroke-width="2"/>
+        <line x1="148" y1="302" x2="156" y2="302" stroke="#777" stroke-width="2"/>
+        <line x1="207" y1="302" x2="215" y2="302" stroke="#777" stroke-width="2"/>
+        <line x1="158" y1="278" x2="164" y2="284" stroke="#777" stroke-width="2"/>
+        <line x1="200" y1="319" x2="206" y2="325" stroke="#777" stroke-width="2"/>
+        <line x1="158" y1="325" x2="164" y2="319" stroke="#777" stroke-width="2"/>
+        <line x1="200" y1="284" x2="206" y2="278" stroke="#777" stroke-width="2"/>
+        <!-- hub -->
+        <circle cx="182" cy="302" r="14" fill="#222" stroke="#555" stroke-width="1.5"/>
+        <circle cx="182" cy="302" r="7" fill="#333" stroke="#666" stroke-width="1"/>
+        <!-- wheel bolts -->
+        <circle cx="182" cy="282" r="3" fill="#555"/>
+        <circle cx="199" cy="313" r="3" fill="#555"/>
+        <circle cx="165" cy="313" r="3" fill="#555"/>
+        <!-- BRAKE CALIPER -->
+        <rect x="135" y="275" width="28" height="42" rx="4" fill="#c0392b" stroke="#e74c3c" stroke-width="1.5"/>
+        <rect x="139" y="279" width="20" height="15" rx="2" fill="#e74c3c" opacity="0.7"/>
+        <!-- caliper bolts -->
+        <circle cx="141" cy="287" r="3" fill="#a93226"/>
+        <circle cx="157" cy="287" r="3" fill="#a93226"/>
+        <!-- BRAKE HEAT (animated, appears on brake) -->
+        <circle cx="182" cy="302" r="38" fill="url(#brakeHeat)" opacity="0" id="discHeat1">
+          <animate attributeName="opacity" values="0;0;0.9;0.6" keyTimes="0;0.5;0.6;1" dur="3s" repeatCount="indefinite"/>
+        </circle>
+        <!-- rim spokes -->
+        <line x1="182" y1="255" x2="182" y2="275" stroke="#555" stroke-width="3"/>
+        <line x1="182" y1="329" x2="182" y2="349" stroke="#555" stroke-width="3"/>
+        <line x1="135" y1="302" x2="155" y2="302" stroke="#555" stroke-width="3"/>
+        <line x1="208" y1="302" x2="228" y2="302" stroke="#555" stroke-width="3"/>
+        <line x1="149" y1="268" x2="163" y2="282" stroke="#555" stroke-width="2.5"/>
+        <line x1="201" y1="321" x2="215" y2="335" stroke="#555" stroke-width="2.5"/>
+        <line x1="149" y1="335" x2="163" y2="321" stroke="#555" stroke-width="2.5"/>
+        <line x1="201" y1="282" x2="215" y2="268" stroke="#555" stroke-width="2.5"/>
+      </g>
+
+      <!-- REAR WHEEL ASSEMBLY -->
+      <g id="rearWheel">
+        <path d="M610,230 Q600,310 620,320 L760,320 Q780,310 775,230 Z" fill="#0d0d0d"/>
+        <circle cx="692" cy="302" r="72" fill="#111" stroke="#222" stroke-width="2"/>
+        <circle cx="692" cy="302" r="68" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+        <circle cx="692" cy="302" r="65" fill="none" stroke="#151515" stroke-width="6" stroke-dasharray="8 6"/>
+        <circle cx="692" cy="302" r="50" fill="url(#wheelGrad)" stroke="#444" stroke-width="2"/>
+        <!-- DISC ROTOR rear -->
+        <circle cx="692" cy="302" r="36" fill="url(#discGrad)" stroke="#555" stroke-width="1.5"/>
+        <circle cx="692" cy="302" r="28" fill="none" stroke="#666" stroke-width="1" stroke-dasharray="4 3"/>
+        <line x1="692" y1="268" x2="692" y2="276" stroke="#777" stroke-width="2"/>
+        <line x1="692" y1="326" x2="692" y2="334" stroke="#777" stroke-width="2"/>
+        <line x1="658" y1="302" x2="666" y2="302" stroke="#777" stroke-width="2"/>
+        <line x1="717" y1="302" x2="725" y2="302" stroke="#777" stroke-width="2"/>
+        <line x1="668" y1="278" x2="674" y2="284" stroke="#777" stroke-width="2"/>
+        <line x1="710" y1="319" x2="716" y2="325" stroke="#777" stroke-width="2"/>
+        <line x1="668" y1="325" x2="674" y2="319" stroke="#777" stroke-width="2"/>
+        <line x1="710" y1="284" x2="716" y2="278" stroke="#777" stroke-width="2"/>
+        <circle cx="692" cy="302" r="14" fill="#222" stroke="#555" stroke-width="1.5"/>
+        <circle cx="692" cy="302" r="7" fill="#333" stroke="#666" stroke-width="1"/>
+        <circle cx="692" cy="282" r="3" fill="#555"/>
+        <circle cx="709" cy="313" r="3" fill="#555"/>
+        <circle cx="675" cy="313" r="3" fill="#555"/>
+        <!-- BRAKE CALIPER rear -->
+        <rect x="645" y="275" width="28" height="42" rx="4" fill="#c0392b" stroke="#e74c3c" stroke-width="1.5"/>
+        <rect x="649" y="279" width="20" height="15" rx="2" fill="#e74c3c" opacity="0.7"/>
+        <circle cx="651" cy="287" r="3" fill="#a93226"/>
+        <circle cx="667" cy="287" r="3" fill="#a93226"/>
+        <!-- disc heat rear -->
+        <circle cx="692" cy="302" r="38" fill="url(#brakeHeat)" opacity="0" id="discHeat2">
+          <animate attributeName="opacity" values="0;0;0.9;0.6" keyTimes="0;0.5;0.6;1" dur="3s" repeatCount="indefinite"/>
+        </circle>
+        <!-- spokes rear -->
+        <line x1="692" y1="255" x2="692" y2="275" stroke="#555" stroke-width="3"/>
+        <line x1="692" y1="329" x2="692" y2="349" stroke="#555" stroke-width="3"/>
+        <line x1="645" y1="302" x2="665" y2="302" stroke="#555" stroke-width="3"/>
+        <line x1="718" y1="302" x2="738" y2="302" stroke="#555" stroke-width="3"/>
+        <line x1="659" y1="268" x2="673" y2="282" stroke="#555" stroke-width="2.5"/>
+        <line x1="711" y1="321" x2="725" y2="335" stroke="#555" stroke-width="2.5"/>
+        <line x1="659" y1="335" x2="673" y2="321" stroke="#555" stroke-width="2.5"/>
+        <line x1="711" y1="282" x2="725" y2="268" stroke="#555" stroke-width="2.5"/>
+      </g>
+
+      <!-- Car body lower edge shine -->
+      <line x1="80" y1="232" x2="820" y2="232" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    </svg>
+  </div>
+
+  <!-- Disc pad close-up reveal -->
+  <div class="disc-reveal">
+    <div class="disc-halo"></div>
+    <svg class="disc-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="dg2" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#777"/>
+          <stop offset="70%" stop-color="#444"/>
+          <stop offset="100%" stop-color="#1a1a1a"/>
+        </radialGradient>
+        <radialGradient id="heatGrad2" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#ff5500"/>
+          <stop offset="50%" stop-color="#ff2200" stop-opacity="0.6"/>
+          <stop offset="100%" stop-color="#ff0000" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glow2">
+          <feGaussianBlur stdDeviation="5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- outer ring -->
+      <circle cx="100" cy="100" r="95" fill="#111" stroke="#333" stroke-width="2"/>
+      <!-- tyre rubber ring -->
+      <circle cx="100" cy="100" r="88" fill="#0d0d0d" stroke="#1a1a1a" stroke-width="6"/>
+      <!-- rim -->
+      <circle cx="100" cy="100" r="72" fill="url(#dg2)" stroke="#555" stroke-width="2"/>
+      <!-- DISC ROTOR large -->
+      <circle cx="100" cy="100" r="52" fill="#555" stroke="#666" stroke-width="2"/>
+      <!-- rotor rings -->
+      <circle cx="100" cy="100" r="44" fill="none" stroke="#444" stroke-width="2"/>
+      <circle cx="100" cy="100" r="36" fill="#333" stroke="#444" stroke-width="1.5"/>
+      <!-- rotor slots (prominent) -->
+      <line x1="100" y1="50" x2="100" y2="62" stroke="#888" stroke-width="3"/>
+      <line x1="100" y1="138" x2="100" y2="150" stroke="#888" stroke-width="3"/>
+      <line x1="52" y1="100" x2="64" y2="100" stroke="#888" stroke-width="3"/>
+      <line x1="136" y1="100" x2="148" y2="100" stroke="#888" stroke-width="3"/>
+      <line x1="63" y1="63" x2="71" y2="71" stroke="#888" stroke-width="2.5"/>
+      <line x1="129" y1="129" x2="137" y2="137" stroke="#888" stroke-width="2.5"/>
+      <line x1="63" y1="137" x2="71" y2="129" stroke="#888" stroke-width="2.5"/>
+      <line x1="129" y1="71" x2="137" y2="63" stroke="#888" stroke-width="2.5"/>
+      <!-- hub -->
+      <circle cx="100" cy="100" r="18" fill="#222" stroke="#555" stroke-width="2"/>
+      <circle cx="100" cy="100" r="9" fill="#333" stroke="#666" stroke-width="1.5"/>
+      <!-- spokes -->
+      <line x1="100" y1="30" x2="100" y2="52" stroke="#666" stroke-width="4"/>
+      <line x1="100" y1="148" x2="100" y2="170" stroke="#666" stroke-width="4"/>
+      <line x1="30" y1="100" x2="52" y2="100" stroke="#666" stroke-width="4"/>
+      <line x1="148" y1="100" x2="170" y2="100" stroke="#666" stroke-width="4"/>
+      <line x1="43" y1="43" x2="58" y2="58" stroke="#666" stroke-width="3.5"/>
+      <line x1="142" y1="142" x2="157" y2="157" stroke="#666" stroke-width="3.5"/>
+      <line x1="43" y1="157" x2="58" y2="142" stroke="#666" stroke-width="3.5"/>
+      <line x1="142" y1="58" x2="157" y2="43" stroke="#666" stroke-width="3.5"/>
+      <!-- BRAKE CALIPER close up -->
+      <rect x="18" y="72" width="30" height="56" rx="5" fill="#c0392b" stroke="#e74c3c" stroke-width="2"/>
+      <rect x="22" y="78" width="22" height="18" rx="3" fill="#e74c3c" opacity="0.8"/>
+      <!-- DISC PADS (the star of the show) -->
+      <rect x="19" y="92" width="10" height="20" rx="2" fill="#e74c3c" stroke="#ff6b6b" stroke-width="1.5" filter="url(#glow2)"/>
+      <rect x="42" y="92" width="10" height="20" rx="2" fill="#e74c3c" stroke="#ff6b6b" stroke-width="1.5" filter="url(#glow2)"/>
+      <!-- heat glow on disc -->
+      <circle cx="100" cy="100" r="54" fill="url(#heatGrad2)" opacity="0.75">
+        <animate attributeName="opacity" values="0.5;0.85;0.5" dur="0.8s" repeatCount="indefinite"/>
+      </circle>
+      <!-- hot sparks -->
+      <circle cx="50" cy="90" r="2" fill="#ff8800">
+        <animate attributeName="opacity" values="0;1;0" dur="0.3s" begin="0.1s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="46" cy="105" r="1.5" fill="#ffaa00">
+        <animate attributeName="opacity" values="0;1;0" dur="0.4s" begin="0.25s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="54" cy="115" r="2.5" fill="#ff6600">
+        <animate attributeName="opacity" values="0;1;0" dur="0.35s" begin="0.05s" repeatCount="indefinite"/>
+      </circle>
+    </svg>
+  </div>
+
+  <!-- disc pad annotation label -->
+  <div class="disc-label">
+    <div class="disc-label-line"></div>
+    <div class="disc-label-text">High-Performance Disc Pads</div>
+  </div>
+
+  <!-- HEADLINE COPY -->
+  <div class="headline">
+    <div class="eyebrow">Tashi Auto Parts</div>
+    <div class="title">Stop<span>Faster.</span></div>
+    <div class="subtitle">Premium disc brake pads — built for the moment that matters</div>
+    <a class="cta" href="#">Shop Disc Pads</a>
+  </div>
+
+  <!-- particles -->
+  <div class="particles" id="particles"></div>
+
+  <!-- Vignette -->
+  <div class="vignette"></div>
+</div>
+
+<script>
+/* Stars */
+const starsEl=document.getElementById('stars');
+for(let i=0;i<80;i++){
+  const s=document.createElement('span');
+  const size=Math.random()*2+1;
+  s.style.cssText=`width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*4}s;--delay:${Math.random()*4}s`;
+  starsEl.appendChild(s);
+}
+
+/* Speed lines */
+const sl=document.getElementById('speedLines');
+for(let i=0;i<24;i++){
+  const d=document.createElement('div');
+  d.className='speed-line';
+  d.style.cssText=`top:${Math.random()*100}%;opacity:${0.1+Math.random()*.25};width:${60+Math.random()*40}%`;
+  sl.appendChild(d);
+}
+
+/* Particles at brake moment */
+const pEl=document.getElementById('particles');
+setTimeout(()=>{
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    const angle=Math.random()*Math.PI*2;
+    const dist=40+Math.random()*80;
+    p.style.cssText=`
+      left:${22+Math.random()*8}%;bottom:${36+Math.random()*4}%;
+      --pd:${0.5+Math.random()*.6}s;--pdd:${2+Math.random()*.4}s;
+      --px:${Math.cos(angle)*dist}px;--py:${Math.sin(angle)*dist-60}px;
+      width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;
+      background:${Math.random()>.5?'#ff4400':'#ffaa00'};
+    `;
+    pEl.appendChild(p);
+  }
+},100);
+
+/* Wheel spin animation */
+const fw=document.getElementById('frontWheel');
+const rw=document.getElementById('rearWheel');
+let startTime=null;
+const carWrap=document.getElementById('carWrap');
+const carCx=182, carCy=302, rCx=692, rCy=302;
+
+function spinWheels(ts){
+  if(!startTime)startTime=ts;
+  const elapsed=(ts-startTime)/1000;
+  // fast spin for 1.85s then slow to stop by 2.3s
+  let rpm;
+  if(elapsed<1.85) rpm=800;
+  else if(elapsed<2.5) rpm=Math.max(0,800*(1-(elapsed-1.85)/0.65));
+  else rpm=0;
+  const deg=elapsed*rpm/60*360%360;
+  fw.setAttribute('transform',`rotate(${deg},${carCx},${carCy})`);
+  rw.setAttribute('transform',`rotate(${deg},${rCx},${rCy})`);
+  requestAnimationFrame(spinWheels);
+}
+requestAnimationFrame(spinWheels);
+
+/* Brake light pulse — already done via CSS animation on SVG elements */
+</script>
+</body>
+</html>
