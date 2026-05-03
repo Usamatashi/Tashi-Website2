@@ -44,6 +44,7 @@ const NAV: NavSection[] = [
     items: [
       { to: "/admin/users", icon: Users, label: "Users", perm: "tab_users" },
       { to: "/admin/regions", icon: MapPin, label: "Regions" },
+      { to: "/admin/team", icon: Users, label: "Team" },
       { to: "/admin/whatsapp", icon: MessageCircle, label: "WhatsApp" },
       { to: "/admin/super-config", icon: BarChart3, label: "Super Config", superOnly: true },
     ],

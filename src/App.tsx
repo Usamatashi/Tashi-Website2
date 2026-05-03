@@ -27,6 +27,7 @@ import AdminUsers from "@/pages/AdminUsers";
 import AdminRegions from "@/pages/AdminRegions";
 import AdminWhatsapp from "@/pages/AdminWhatsapp";
 import AdminSuperConfig from "@/pages/AdminSuperConfig";
+import AdminTeam from "@/pages/AdminTeam";
 
 export default function App() {
   const location = useLocation();
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="regions" element={<AdminRegions />} />
           <Route path="whatsapp" element={<AdminWhatsapp />} />
           <Route path="super-config" element={<AdminSuperConfig />} />
+          <Route path="team" element={<AdminTeam />} />
         </Route>
       </Routes>
     );

@@ -18,6 +18,7 @@ import regionsRouter from "./routes/regions.js";
 import adminSettingsRouter from "./routes/admin-settings.js";
 import adminUserSettingsRouter from "./routes/admin-user-settings.js";
 import whatsappContactsRouter from "./routes/whatsapp-contacts.js";
+import teamRouter from "./routes/team.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -69,6 +70,7 @@ app.use("/api/admin/regions", regionsRouter);
 app.use("/api/admin/admin-settings", adminSettingsRouter);
 app.use("/api/admin/admin-user-settings", adminUserSettingsRouter);
 app.use("/api/admin/whatsapp-contacts", whatsappContactsRouter);
+app.use("/api/admin/team", teamRouter);
 
 const isProd = process.env.NODE_ENV === "production";
 

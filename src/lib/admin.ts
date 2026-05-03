@@ -336,6 +336,23 @@ export async function adminDeleteRegion(id: number) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/regions/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
+// ── Team Members ─────────────────────────────────────────────────────────
+export type TeamMember = {
+  id: number; name: string; role: string; order: number; photoUrl: string | null; createdAt: string | null;
+};
+export async function adminListTeam() {
+  return handle<TeamMember[]>(await apiFetch("/api/admin/team", j()));
+}
+export async function adminCreateTeamMember(fd: FormData) {
+  return handle<TeamMember>(await apiFetch("/api/admin/team", { method: "POST", credentials: "include", body: fd }));
+}
+export async function adminUpdateTeamMember(id: number, fd: FormData) {
+  return handle<TeamMember>(await apiFetch(`/api/admin/team/${id}`, { method: "PUT", credentials: "include", body: fd }));
+}
+export async function adminDeleteTeamMember(id: number) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/team/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
 // ── WhatsApp Contacts ────────────────────────────────────────────────────
 export type WhatsappContacts = { mechanic: string; salesman: string; retailer: string };
 export async function adminGetWhatsappContacts() {
