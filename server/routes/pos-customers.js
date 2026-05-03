@@ -1,17 +1,62 @@
 import { Router } from "express";
-import { db, toISOString, nextId } from "../lib/firebase.js";
+import { db, fdb, toISOString, nextId } from "../lib/firebase.js";
 import { requireAdmin } from "./admin-auth.js";
 
 const router = Router();
 router.use(requireAdmin);
 
-// ── List customers ────────────────────────────────────────────────────────
+// ── Merged: all three types ───────────────────────────────────────────────
+router.get("/all-types", async (req, res) => {
+  try {
+    const [usersSnap, posSnap] = await Promise.all([
+      db.collection("users").get(),
+      db.collection("pos_customers").get(),
+    ]);
+
+    const mechanics = [];
+    const retailers = [];
+    for (const d of usersSnap.docs) {
+      const u = d.data();
+      if (u.role !== "mechanic" && u.role !== "retailer") continue;
+      const entry = {
+        id: String(u.id ?? d.id),
+        source: "app_user",
+        customerType: u.role,
+        name: u.name || u.phone,
+        phone: u.phone || null,
+        city: u.city || null,
+        totalPurchases: 0,
+        createdAt: toISOString(u.createdAt),
+        lastPurchaseAt: null,
+      };
+      if (u.role === "mechanic") mechanics.push(entry);
+      else retailers.push(entry);
+    }
+
+    const consumers = posSnap.docs.map((d) => ({
+      id: d.id,
+      source: "pos_customer",
+      ...d.data(),
+      customerType: d.data().customerType || "consumer",
+      createdAt: toISOString(d.data().createdAt),
+      lastPurchaseAt: toISOString(d.data().lastPurchaseAt),
+    }));
+
+    res.json({ mechanics, retailers, consumers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── List consumers only (pos_customers) ───────────────────────────────────
 router.get("/", async (req, res) => {
   try {
     const snap = await db.collection("pos_customers").orderBy("name").get();
     const customers = snap.docs.map((d) => ({
       id: d.id,
+      source: "pos_customer",
       ...d.data(),
+      customerType: d.data().customerType || "consumer",
       createdAt: toISOString(d.data().createdAt),
       lastPurchaseAt: toISOString(d.data().lastPurchaseAt),
     }));
@@ -28,6 +73,8 @@ router.post("/", async (req, res) => {
     if (!name?.trim()) return res.status(400).json({ error: "Name required" });
 
     const id = await nextId("pos_customers");
+    const { customerType } = req.body;
+    const validTypes = ["mechanic", "retailer", "consumer"];
     const data = {
       id,
       name: name.trim(),
@@ -35,6 +82,7 @@ router.post("/", async (req, res) => {
       email: email?.trim() || null,
       city: city?.trim() || null,
       address: address?.trim() || null,
+      customerType: validTypes.includes(customerType) ? customerType : "consumer",
       totalPurchases: 0,
       createdAt: new Date(),
       lastPurchaseAt: null,

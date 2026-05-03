@@ -413,15 +413,22 @@ export async function adminSyncStock(products: Array<{ id: number; name: string;
 }
 
 // ── POS Customers ─────────────────────────────────────────────────────────
+export type POSCustomerType = "mechanic" | "retailer" | "consumer";
 export type POSCustomer = {
   id: string; name: string; phone: string | null; email: string | null;
   city: string | null; address: string | null;
+  customerType: POSCustomerType;
   totalPurchases: number; createdAt: string | null; lastPurchaseAt: string | null;
 };
 export async function adminListPOSCustomers() {
   return handle<POSCustomer[]>(await apiFetch("/api/admin/pos/customers", j()));
 }
-export async function adminCreatePOSCustomer(body: { name: string; phone?: string; email?: string; city?: string; address?: string }) {
+export async function adminListAllPOSCustomers() {
+  return handle<{ mechanics: POSCustomer[]; retailers: POSCustomer[]; consumers: POSCustomer[] }>(
+    await apiFetch("/api/admin/pos/customers/all-types", j()),
+  );
+}
+export async function adminCreatePOSCustomer(body: { name: string; phone?: string; email?: string; city?: string; address?: string; customerType?: string }) {
   return handle<POSCustomer>(await apiFetch("/api/admin/pos/customers", json(body)));
 }
 export async function adminUpdatePOSCustomer(id: string, body: Partial<POSCustomer>) {

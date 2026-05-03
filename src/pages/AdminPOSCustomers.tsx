@@ -1,25 +1,43 @@
 import { useEffect, useState } from "react";
-import { Users, Plus, Edit2, Trash2, Search, Phone, MapPin, ShoppingBag } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Phone, MapPin, ShoppingBag, Wrench, Store, User } from "lucide-react";
 import {
-  adminListPOSCustomers, adminCreatePOSCustomer, adminUpdatePOSCustomer,
+  adminListAllPOSCustomers, adminCreatePOSCustomer, adminUpdatePOSCustomer,
   adminDeletePOSCustomer, formatPrice, formatDate, type POSCustomer,
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
 
+type Tab = "mechanic" | "retailer" | "consumer";
+
+const TAB_META: Record<Tab, { label: string; icon: React.ElementType; color: string; badge: string }> = {
+  mechanic: { label: "Mechanics", icon: Wrench,  color: "text-blue-700",    badge: "bg-blue-100 text-blue-700" },
+  retailer: { label: "Retailers", icon: Store,   color: "text-violet-700",  badge: "bg-violet-100 text-violet-700" },
+  consumer: { label: "Consumers", icon: User,    color: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700" },
+};
+
 export default function AdminPOSCustomers() {
-  const [customers, setCustomers] = useState<POSCustomer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<POSCustomer | null>(null);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", city: "", address: "" });
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [mechanics, setMechanics] = useState<POSCustomer[]>([]);
+  const [retailers, setRetailers] = useState<POSCustomer[]>([]);
+  const [consumers, setConsumers] = useState<POSCustomer[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [tab, setTab]             = useState<Tab>("mechanic");
+  const [search, setSearch]       = useState("");
+
+  const [showForm, setShowForm]   = useState(false);
+  const [editing, setEditing]     = useState<POSCustomer | null>(null);
+  const [form, setForm]           = useState({ name: "", phone: "", email: "", city: "", address: "" });
+  const [saving, setSaving]       = useState(false);
+  const [err, setErr]             = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
-    try { setCustomers(await adminListPOSCustomers()); }
-    finally { setLoading(false); }
+    try {
+      const data = await adminListAllPOSCustomers();
+      setMechanics(data.mechanics);
+      setRetailers(data.retailers);
+      setConsumers(data.consumers);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -41,9 +59,12 @@ export default function AdminPOSCustomers() {
   async function handleSave() {
     setErr(null); setSaving(true);
     try {
-      if (!form.name.trim()) { setErr("Name is required"); return; }
-      if (editing) await adminUpdatePOSCustomer(editing.id, form);
-      else await adminCreatePOSCustomer(form);
+      if (!form.name.trim()) { setErr("Name is required"); setSaving(false); return; }
+      if (editing) {
+        await adminUpdatePOSCustomer(editing.id, form);
+      } else {
+        await adminCreatePOSCustomer({ ...form, customerType: "consumer" });
+      }
       await load();
       setShowForm(false);
     } catch (e: unknown) {
@@ -56,10 +77,11 @@ export default function AdminPOSCustomers() {
   async function handleDelete(id: string) {
     if (!confirm("Delete this customer?")) return;
     await adminDeletePOSCustomer(id);
-    setCustomers((p) => p.filter((c) => c.id !== id));
+    setConsumers((p) => p.filter((c) => c.id !== id));
   }
 
-  const filtered = customers.filter(
+  const listFor: Record<Tab, POSCustomer[]> = { mechanic: mechanics, retailer: retailers, consumer: consumers };
+  const current = listFor[tab].filter(
     (c) =>
       search === "" ||
       c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -67,54 +89,98 @@ export default function AdminPOSCustomers() {
       c.city?.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const isAppUser = tab !== "consumer";
+  const { icon: TabIcon } = TAB_META[tab];
+
   if (loading) return <PageShell><Loading /></PageShell>;
 
   return (
     <PageShell>
       <PageHeader
         title="POS Customers"
-        subtitle="Manage your retail customer database."
+        subtitle="Mechanics and Retailers come from the app. Consumers are added here."
         actions={
-          <Btn onClick={openNew}>
-            <Plus className="h-4 w-4" /> Add Customer
-          </Btn>
+          tab === "consumer" && (
+            <Btn onClick={openNew}><Plus className="h-4 w-4" /> Add Consumer</Btn>
+          )
         }
       />
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
-        <Card className="p-5">
-          <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Total Customers</div>
-          <div className="mt-2 font-display text-2xl font-bold text-ink-900">{customers.length}</div>
-        </Card>
-        <Card className="p-5">
-          <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Total Revenue</div>
-          <div className="mt-2 font-display text-2xl font-bold text-ink-900">
-            {formatPrice(customers.reduce((a, c) => a + (c.totalPurchases || 0), 0))}
-          </div>
-        </Card>
-        <Card className="p-5">
-          <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Top Customer</div>
-          <div className="mt-2 font-display text-lg font-bold text-ink-900 truncate">
-            {customers.sort((a, b) => b.totalPurchases - a.totalPurchases)[0]?.name || "—"}
-          </div>
-        </Card>
+      {/* Summary cards */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        {(["mechanic", "retailer", "consumer"] as Tab[]).map((t) => {
+          const meta = TAB_META[t];
+          const Icon = meta.icon;
+          const count = listFor[t].length;
+          const revenue = listFor[t].reduce((a, c) => a + (c.totalPurchases || 0), 0);
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`rounded-2xl border p-5 text-left shadow-sm transition-all hover:shadow-md ${
+                tab === t ? "border-brand-400 ring-2 ring-brand-100 bg-white" : "border-ink-200 bg-white"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">{meta.label}</div>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>{count}</span>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                <Icon className={`h-5 w-5 ${meta.color}`} />
+                <span className="font-display text-lg font-bold text-ink-900">{formatPrice(revenue)}</span>
+              </div>
+              <div className="mt-0.5 text-xs text-ink-400">Total purchases</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-4 flex rounded-xl border border-ink-200 bg-white overflow-hidden w-fit shadow-sm">
+        {(["mechanic", "retailer", "consumer"] as Tab[]).map((t) => {
+          const meta = TAB_META[t];
+          const Icon = meta.icon;
+          return (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setSearch(""); }}
+              className={`flex items-center gap-2 px-5 py-2.5 text-sm font-semibold transition-colors ${
+                tab === t ? "bg-brand-500 text-white" : "text-ink-600 hover:bg-ink-50"
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {meta.label}
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                tab === t ? "bg-white/20 text-white" : "bg-ink-100 text-ink-600"
+              }`}>
+                {listFor[t].length}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <Card>
-        <div className="border-b border-ink-200 px-5 py-4">
-          <div className="relative max-w-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-5 py-4">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
             <input
               className="w-full rounded-md border border-ink-200 py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              placeholder="Search name, phone or city…"
+              placeholder={`Search ${TAB_META[tab].label.toLowerCase()}…`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          {isAppUser && (
+            <div className="text-xs text-ink-400 bg-ink-50 border border-ink-200 rounded-lg px-3 py-2">
+              {TAB_META[tab].label} are managed in the mobile app — read only here.
+            </div>
+          )}
         </div>
 
-        {filtered.length === 0 ? (
-          <Empty icon={Users} title="No customers yet" hint='Add your first customer to get started.' />
+        {current.length === 0 ? (
+          <Empty icon={TabIcon} title={`No ${TAB_META[tab].label.toLowerCase()} found`}
+            hint={isAppUser ? "Add them from the mobile app under Users." : "Click \"Add Consumer\" to create one."} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -125,33 +191,29 @@ export default function AdminPOSCustomers() {
                   <th className="px-4 py-3">City</th>
                   <th className="px-4 py-3 text-right">Total Purchases</th>
                   <th className="px-4 py-3">Last Purchase</th>
-                  <th className="px-4 py-3" />
+                  {!isAppUser && <th className="px-4 py-3" />}
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {filtered.map((c) => (
+                {current.map((c) => (
                   <tr key={c.id} className="hover:bg-ink-50 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
+                        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold ${TAB_META[tab].badge}`}>
                           {c.name.charAt(0).toUpperCase()}
                         </div>
                         <span className="font-medium text-ink-800">{c.name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {c.phone ? (
-                        <span className="flex items-center gap-1 text-ink-600">
-                          <Phone className="h-3 w-3" />{c.phone}
-                        </span>
-                      ) : <span className="text-ink-300">—</span>}
+                      {c.phone
+                        ? <span className="flex items-center gap-1 text-ink-600"><Phone className="h-3 w-3" />{c.phone}</span>
+                        : <span className="text-ink-300">—</span>}
                     </td>
                     <td className="px-4 py-3">
-                      {c.city ? (
-                        <span className="flex items-center gap-1 text-ink-600">
-                          <MapPin className="h-3 w-3" />{c.city}
-                        </span>
-                      ) : <span className="text-ink-300">—</span>}
+                      {c.city
+                        ? <span className="flex items-center gap-1 text-ink-600"><MapPin className="h-3 w-3" />{c.city}</span>
+                        : <span className="text-ink-300">—</span>}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="flex items-center justify-end gap-1 font-semibold text-ink-900">
@@ -160,16 +222,18 @@ export default function AdminPOSCustomers() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-ink-500">{formatDate(c.lastPurchaseAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => openEdit(c)} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-800">
-                          <Edit2 className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => handleDelete(c.id)} className="rounded-md p-1.5 text-ink-500 hover:bg-red-50 hover:text-red-600">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+                    {!isAppUser && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => openEdit(c)} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-800">
+                            <Edit2 className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => handleDelete(c.id)} className="rounded-md p-1.5 text-ink-500 hover:bg-red-50 hover:text-red-600">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -181,7 +245,7 @@ export default function AdminPOSCustomers() {
       <Modal
         open={showForm}
         onClose={() => setShowForm(false)}
-        title={editing ? "Edit Customer" : "Add Customer"}
+        title={editing ? "Edit Consumer" : "Add Consumer"}
         footer={
           <>
             <Btn variant="secondary" onClick={() => setShowForm(false)}>Cancel</Btn>
@@ -192,37 +256,20 @@ export default function AdminPOSCustomers() {
         <ErrorBanner message={err} />
         <div className="space-y-4">
           <Field label="Full name *">
-            <input
-              className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-              placeholder="Customer name"
-            />
+            <input className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Customer name" />
           </Field>
           <Field label="Phone">
-            <input
-              className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-              placeholder="03xx-xxxxxxx"
-            />
+            <input className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} placeholder="03xx-xxxxxxx" />
           </Field>
           <Field label="City">
-            <input
-              className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              value={form.city}
-              onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
-              placeholder="City"
-            />
+            <input className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} placeholder="City" />
           </Field>
           <Field label="Address">
-            <textarea
-              className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              rows={2}
-              value={form.address}
-              onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-              placeholder="Optional address"
-            />
+            <textarea className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              rows={2} value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="Optional address" />
           </Field>
         </div>
       </Modal>
