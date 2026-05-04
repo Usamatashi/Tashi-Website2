@@ -106,7 +106,7 @@ export default function AdminPOSCustomers() {
         })}
       </div>
 
-      <div className="mb-4 flex rounded-xl border border-ink-200 bg-white overflow-hidden w-fit shadow-sm">
+      <div className="mb-4 flex rounded-xl border border-ink-200 bg-white overflow-hidden w-fit shadow-sm mx-auto">
         {(["mechanic", "retailer", "consumer"] as Tab[]).map((t) => {
           const meta = TAB_META[t];
           const Icon = meta.icon;
