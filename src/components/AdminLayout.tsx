@@ -45,7 +45,6 @@ const NAV: NavSection[] = [
     items: [
       { to: "/admin/pos", icon: MonitorSmartphone, label: "POS Terminal" },
       { to: "/admin/stock", icon: Layers, label: "Stock" },
-      { to: "/admin/pos-customers", icon: UserSquare2, label: "Customers" },
     ],
   },
   {
