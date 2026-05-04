@@ -362,6 +362,79 @@ export async function adminUpdateWhatsappContacts(c: Partial<WhatsappContacts>) 
   return handle<WhatsappContacts>(await apiFetch("/api/admin/whatsapp-contacts", json(c, "PUT")));
 }
 
+// ── POS Stock ────────────────────────────────────────────────────────────
+export type StockItem = {
+  id: string; productId: number; productName: string; sku: string | null;
+  quantity: number; minQuantity: number;
+  costPrice: number | null; sellingPrice: number | null; updatedAt: string | null;
+};
+export async function adminListStock() {
+  return handle<StockItem[]>(await apiFetch("/api/admin/pos/stock", j()));
+}
+export async function adminCreateStock(body: { productId: number; productName: string; sku?: string; quantity?: number; minQuantity?: number; costPrice?: number; sellingPrice?: number }) {
+  return handle<StockItem>(await apiFetch("/api/admin/pos/stock", json(body)));
+}
+export async function adminUpdateStock(id: string, body: Partial<StockItem>) {
+  return handle<StockItem>(await apiFetch(`/api/admin/pos/stock/${id}`, json(body, "PUT")));
+}
+export async function adminAdjustStock(id: string, adjustment: number, reason?: string) {
+  return handle<StockItem>(await apiFetch(`/api/admin/pos/stock/${id}/adjust`, json({ adjustment, reason })));
+}
+export async function adminDeleteStock(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/pos/stock/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
+// ── POS Sales ─────────────────────────────────────────────────────────────
+export type POSSaleItem = {
+  productId: number; productName: string; sku: string;
+  qty: number; unitPrice: number; discountPct: number; lineTotal: number;
+};
+export type POSSale = {
+  id: string; saleNumber: string;
+  customerId: string | null; customerName: string;
+  items: POSSaleItem[];
+  subtotal: number; discountAmount: number; discountPct: number; total: number;
+  paymentMethod: string;
+  cashReceived: number | null; changeGiven: number | null;
+  notes: string | null; createdAt: string | null;
+};
+export type POSSaleStats = { totalRevenue: number; todayRevenue: number; todayCount: number; totalSales: number };
+export async function adminListPOSSales(limit = 50) {
+  return handle<POSSale[]>(await apiFetch(`/api/admin/pos/sales?limit=${limit}`, j()));
+}
+export async function adminCreatePOSSale(body: Omit<POSSale, "id" | "saleNumber" | "createdAt">) {
+  return handle<POSSale>(await apiFetch("/api/admin/pos/sales", json(body)));
+}
+export async function adminGetPOSSaleStats() {
+  return handle<POSSaleStats>(await apiFetch("/api/admin/pos/sales/stats", j()));
+}
+
+// ── POS Customers ─────────────────────────────────────────────────────────
+export type POSCustomerType = "mechanic" | "retailer" | "consumer";
+export type POSCustomer = {
+  id: string; source?: string; name: string; phone: string | null;
+  email?: string | null; city: string | null; address?: string | null;
+  customerType: POSCustomerType;
+  totalPurchases: number; createdAt: string | null; lastPurchaseAt: string | null;
+};
+export async function adminListPOSCustomers() {
+  return handle<POSCustomer[]>(await apiFetch("/api/admin/pos/customers", j()));
+}
+export async function adminListAllPOSCustomers() {
+  return handle<{ mechanics: POSCustomer[]; retailers: POSCustomer[]; consumers: POSCustomer[] }>(
+    await apiFetch("/api/admin/pos/customers/all-types", j()),
+  );
+}
+export async function adminCreatePOSCustomer(body: { name: string; phone?: string; email?: string; city?: string; address?: string; customerType?: string }) {
+  return handle<POSCustomer>(await apiFetch("/api/admin/pos/customers", json(body)));
+}
+export async function adminUpdatePOSCustomer(id: string, body: Partial<POSCustomer>) {
+  return handle<POSCustomer>(await apiFetch(`/api/admin/pos/customers/${id}`, json(body, "PUT")));
+}
+export async function adminDeletePOSCustomer(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/pos/customers/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
 // ── Constants & helpers ──────────────────────────────────────────────────
 export const STATUS_META: Record<string, { label: string; tone: string; ring: string; dot: string }> = {
   pending: { label: "Pending", tone: "bg-amber-50 text-amber-800", ring: "ring-amber-200", dot: "bg-amber-500" },
