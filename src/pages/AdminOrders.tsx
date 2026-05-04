@@ -38,7 +38,7 @@ export default function AdminOrders() {
         subtitle="Retail orders come from the website. Wholesale orders come from the mobile app."
       />
 
-      <div className="mb-5 flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm w-fit">
+      <div className="mb-5 flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm w-fit mx-auto">
         <TabBtn active={tab === "retail"} onClick={() => setTab("retail")} icon={Globe}>Retail</TabBtn>
         <TabBtn active={tab === "wholesale"} onClick={() => setTab("wholesale")} icon={Smartphone}>Wholesale</TabBtn>
       </div>
