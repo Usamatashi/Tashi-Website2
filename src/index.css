@@ -52,29 +52,31 @@ h4 {
   letter-spacing: -0.02em;
 }
 
-.input {
-  display: block;
-  width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid var(--color-ink-200);
-  background: #ffffff;
-  padding: 0.625rem 0.875rem;
-  font-size: 0.875rem;
-  color: var(--color-ink-900);
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
+@layer components {
+  .input {
+    display: block;
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-ink-200);
+    background: #ffffff;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--color-ink-900);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
 
-.input::placeholder {
-  color: var(--color-ink-300);
-}
+  .input::placeholder {
+    color: var(--color-ink-300);
+  }
 
-.input:focus {
-  outline: none;
-  border-color: var(--color-brand-500);
-  box-shadow: 0 0 0 3px rgba(232, 119, 34, 0.15);
-}
+  .input:focus {
+    outline: none;
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 3px rgba(232, 119, 34, 0.15);
+  }
 
-.input:disabled {
-  background: var(--color-ink-50);
-  cursor: not-allowed;
+  .input:disabled {
+    background: var(--color-ink-50);
+    cursor: not-allowed;
+  }
 }
