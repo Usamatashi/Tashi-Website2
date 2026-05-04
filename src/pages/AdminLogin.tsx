@@ -136,8 +136,7 @@ export default function AdminLogin() {
           </button>
 
           <p className="text-center text-xs text-ink-500">
-            Only accounts with the <strong>admin</strong> or{" "}
-            <strong>super_admin</strong> role can sign in here.
+            Administration use only. Unauthorised access is strictly prohibited.
           </p>
         </form>
       </div>
