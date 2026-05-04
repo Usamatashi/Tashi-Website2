@@ -5,7 +5,9 @@ import { requireAdmin } from "../lib/auth.js";
 const router = Router();
 
 async function computeFinalAmounts(orderIds) {
-  if (!orderIds.length) return {};
+  const validIds = orderIds.filter((id) => id !== undefined && id !== null);
+  if (!validIds.length) return {};
+  orderIds = validIds;
   const subtotalMap = {};
   const billDiscountMap = {};
   for (const batch of chunkArray(orderIds, 30)) {
