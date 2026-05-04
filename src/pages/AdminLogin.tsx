@@ -62,8 +62,9 @@ export default function AdminLogin() {
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center text-white">
           <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-20 w-auto drop-shadow-lg" />
-          <p className="mt-3 text-sm text-ink-300">
-            Sign in
+          <h1 className="mt-4 font-display text-2xl font-bold">Welcome back</h1>
+          <p className="mt-1 text-sm text-ink-400">
+            Sign in to your admin account to continue
           </p>
         </div>
 
