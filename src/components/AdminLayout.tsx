@@ -162,14 +162,8 @@ function SidebarBody({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
-        <Link to="/admin" className="flex items-center gap-2" onClick={onClose}>
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-sm">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="font-display text-sm font-bold text-ink-900">Tashi Admin</div>
-            <div className="text-[10px] uppercase tracking-widest text-ink-400">Control center</div>
-          </div>
+        <Link to="/admin" className="flex items-center" onClick={onClose}>
+          <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-9 w-auto" />
         </Link>
         {onClose && (
           <button onClick={onClose} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100">

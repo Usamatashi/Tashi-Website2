@@ -9,22 +9,16 @@ import {
 import { PageShell, PageHeader, Card, Empty, Loading, Pill } from "@/components/admin/ui";
 import { cn } from "@/lib/utils";
 
-const RETAIL_FILTERS = [
-  { value: null, label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "shipped", label: "Shipped" },
+type OrderFilter = "pending" | "delivered" | "cancelled";
+
+const ORDER_FILTERS: { value: OrderFilter; label: string }[] = [
+  { value: "pending",   label: "Pending" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
-] as const;
+];
 
-const WHOLESALE_FILTERS = [
-  { value: null, label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "dispatched", label: "Dispatched" },
-  { value: "cancelled", label: "Cancelled" },
-] as const;
+const RETAIL_PENDING   = ["pending", "confirmed", "shipped"];
+const WHOLESALE_PENDING = ["pending", "confirmed"];
 
 type Tab = "retail" | "wholesale";
 
@@ -69,7 +63,7 @@ function TabBtn({
 function RetailSection() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string | null>(null);
+  const [filter, setFilter] = useState<OrderFilter>("pending");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -77,30 +71,34 @@ function RetailSection() {
     setLoading(true);
     (async () => {
       try {
-        const data = await adminListOrders(filter ?? undefined);
+        const data = await adminListOrders();
         if (!cancelled) setOrders(data.orders);
       } catch (err) { console.error(err); }
       finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [filter]);
+  }, []);
 
   const filtered = useMemo(() => {
+    let result = orders;
+    if (filter === "pending")   result = result.filter((o) => RETAIL_PENDING.includes(o.status));
+    else if (filter === "delivered") result = result.filter((o) => o.status === "delivered");
+    else if (filter === "cancelled") result = result.filter((o) => o.status === "cancelled");
     const q = query.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter((o) =>
+    if (!q) return result;
+    return result.filter((o) =>
       o.id.toLowerCase().includes(q) ||
       (o.customer.name || "").toLowerCase().includes(q) ||
       (o.customer.phone || "").toLowerCase().includes(q) ||
       (o.delivery.city || "").toLowerCase().includes(q),
     );
-  }, [orders, query]);
+  }, [orders, filter, query]);
 
   return (
     <>
       <Toolbar
-        filters={RETAIL_FILTERS as unknown as { value: string | null; label: string }[]}
-        active={filter} onFilter={setFilter}
+        filters={ORDER_FILTERS}
+        active={filter} onFilter={(v) => setFilter(v as OrderFilter)}
         query={query} onQuery={setQuery}
         placeholder="Search by name, phone, city, ID"
         count={filtered.length}
@@ -154,7 +152,7 @@ function RetailSection() {
 function WholesaleSection() {
   const [orders, setOrders] = useState<WholesaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string | null>(null);
+  const [filter, setFilter] = useState<OrderFilter>("pending");
   const [query, setQuery] = useState("");
 
   useEffect(() => {
@@ -162,30 +160,34 @@ function WholesaleSection() {
     setLoading(true);
     (async () => {
       try {
-        const data = await adminListWholesaleOrders(filter ?? undefined);
+        const data = await adminListWholesaleOrders();
         if (!cancelled) setOrders(data.orders);
       } catch (err) { console.error(err); }
       finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
-  }, [filter]);
+  }, []);
 
   const filtered = useMemo(() => {
+    let result = orders;
+    if (filter === "pending")        result = result.filter((o) => WHOLESALE_PENDING.includes(o.status));
+    else if (filter === "delivered") result = result.filter((o) => o.status === "dispatched");
+    else if (filter === "cancelled") result = result.filter((o) => o.status === "cancelled");
     const q = query.trim().toLowerCase();
-    if (!q) return orders;
-    return orders.filter((o) =>
+    if (!q) return result;
+    return result.filter((o) =>
       String(o.id).toLowerCase().includes(q) ||
       (o.retailerName || "").toLowerCase().includes(q) ||
       (o.retailerPhone || "").toLowerCase().includes(q) ||
       (o.salesmanName || "").toLowerCase().includes(q),
     );
-  }, [orders, query]);
+  }, [orders, filter, query]);
 
   return (
     <>
       <Toolbar
-        filters={WHOLESALE_FILTERS as unknown as { value: string | null; label: string }[]}
-        active={filter} onFilter={setFilter}
+        filters={ORDER_FILTERS}
+        active={filter} onFilter={(v) => setFilter(v as OrderFilter)}
         query={query} onQuery={setQuery}
         placeholder="Search by retailer, salesman, ID"
         count={filtered.length}
@@ -239,9 +241,9 @@ function WholesaleSection() {
 function Toolbar({
   filters, active, onFilter, query, onQuery, placeholder, count,
 }: {
-  filters: { value: string | null; label: string }[];
-  active: string | null;
-  onFilter: (v: string | null) => void;
+  filters: { value: OrderFilter; label: string }[];
+  active: OrderFilter;
+  onFilter: (v: string) => void;
   query: string; onQuery: (v: string) => void;
   placeholder: string; count: number;
 }) {
