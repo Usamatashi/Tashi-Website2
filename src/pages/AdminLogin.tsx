@@ -63,7 +63,7 @@ export default function AdminLogin() {
         <div className="mb-8 flex flex-col items-center text-center text-white">
           <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-20 w-auto drop-shadow-lg" />
           <p className="mt-3 text-sm text-ink-300">
-            Sign in with your Tashi app admin account.
+            Sign in
           </p>
         </div>
 
