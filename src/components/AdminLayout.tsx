@@ -29,6 +29,7 @@ const NAV: NavSection[] = [
       { to: "/admin/claims", icon: ShieldCheck, label: "Claims", perm: "card_claims" },
       { to: "/admin/payments", icon: Receipt, label: "Payments", perm: "card_payments" },
       { to: "/admin/commission", icon: CircleDollarSign, label: "Commission", perm: "card_commission" },
+      { to: "/admin/pos-sales", icon: ClipboardList, label: "Sales History" },
     ],
   },
   {
@@ -45,7 +46,6 @@ const NAV: NavSection[] = [
       { to: "/admin/pos", icon: MonitorSmartphone, label: "POS Terminal" },
       { to: "/admin/stock", icon: Layers, label: "Stock" },
       { to: "/admin/pos-customers", icon: UserSquare2, label: "Customers" },
-      { to: "/admin/pos-sales", icon: ClipboardList, label: "Sales History" },
     ],
   },
   {
