@@ -61,11 +61,8 @@ export default function AdminLogin() {
       </Link>
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center text-center text-white">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500 shadow-lg shadow-brand-900/40">
-            <ShieldCheck className="h-7 w-7" />
-          </div>
-          <h1 className="mt-5 font-display text-2xl font-bold">Tashi Admin</h1>
-          <p className="mt-1 text-sm text-ink-300">
+          <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-20 w-auto drop-shadow-lg" />
+          <p className="mt-3 text-sm text-ink-300">
             Sign in with your Tashi app admin account.
           </p>
         </div>
