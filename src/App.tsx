@@ -21,6 +21,7 @@ import AdminPayments from "@/pages/AdminPayments";
 import AdminCommission from "@/pages/AdminCommission";
 import AdminSalesmanDetail from "@/pages/AdminSalesmanDetail";
 import AdminQRCodes from "@/pages/AdminQRCodes";
+import AdminPrintLabels from "@/pages/AdminPrintLabels";
 import AdminAds from "@/pages/AdminAds";
 import AdminTicker from "@/pages/AdminTicker";
 import AdminUsers from "@/pages/AdminUsers";
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="commission" element={<AdminCommission />} />
           <Route path="commission/salesman/:salesmanId" element={<AdminSalesmanDetail />} />
           <Route path="qr-codes" element={<AdminQRCodes />} />
+          <Route path="print-labels" element={<AdminPrintLabels />} />
           <Route path="ads" element={<AdminAds />} />
           <Route path="ticker" element={<AdminTicker />} />
           <Route path="users" element={<AdminUsers />} />

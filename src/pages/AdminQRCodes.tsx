@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { QrCode, Plus, Search, Download } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { QrCode, Plus, Search, Download, Printer } from "lucide-react";
 import {
   adminListQRCodes, adminCreateQRCode, adminListProducts,
   type QRCode as QRCodeRow, type AdminProduct, formatShortDate,
@@ -13,6 +14,7 @@ function randomQRId() {
 }
 
 export default function AdminQRCodes() {
+  const navigate = useNavigate();
   const [items, setItems] = useState<QRCodeRow[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,14 @@ export default function AdminQRCodes() {
       <PageHeader
         title="QR Codes"
         subtitle={`${items.length} generated`}
-        actions={<Btn onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Generate</Btn>}
+        actions={
+          <div className="flex gap-2">
+            <Btn variant="secondary" onClick={() => navigate("/admin/print-labels")}>
+              <Printer className="h-4 w-4" /> Print Labels
+            </Btn>
+            <Btn onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Generate</Btn>
+          </div>
+        }
       />
 
       <div className="mb-4 relative max-w-sm">
