@@ -4,7 +4,7 @@ import {
   Printer, Search, ChevronLeft, RefreshCw,
   CheckSquare, Square, RectangleHorizontal, Maximize2,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-  Scroll, LayoutGrid, Info,
+
 } from "lucide-react";
 import { adminListQRCodes, type QRCode } from "@/lib/admin";
 import { cn } from "@/lib/utils";
@@ -71,7 +71,6 @@ export default function AdminPrintLabels() {
   const [activePreset, setActivePreset] = useState<number | null>(null);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
-  const [printMode, setPrintMode] = useState<"roll" | "sheet">("roll");
 
   useEffect(() => {
     adminListQRCodes()
@@ -178,49 +177,20 @@ export default function AdminPrintLabels() {
     word-break: break-all;
   }`;
 
-    let pageStyle: string;
-    let bodyHtml: string;
-
-    if (printMode === "roll") {
-      // ── Label Roll mode ──────────────────────────────────────────────────
-      // Each label is its own page, sized exactly to the label dimensions.
-      // The OS/driver uses this to align to gap-detected sticker boundaries.
-      pageStyle = `
+    const pageStyle = `
   @page { size: ${wMm}mm ${hMm}mm; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { margin: 0; padding: 0; }
   body { margin: 0; padding: 0; background: white; }
   .label { page-break-after: always; break-after: page; }
   ${sharedLabelCss}`;
-      bodyHtml = selected.map((q) =>
-        `<div class="label">
-          <img src="${qrUrl(q.qrNumber, 600)}" alt="${q.qrNumber}" />
-          ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
-        </div>`
-      ).join("");
-    } else {
-      // ── Sheet mode ───────────────────────────────────────────────────────
-      // All labels arranged in a grid on standard paper (e.g. A4).
-      pageStyle = `
-  @page { size: auto; margin: 0; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { margin: ${mvMm}mm ${mhMm}mm; font-family: monospace; background: white; }
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(${columns}, ${wMm}mm);
-    column-gap: ${cgMm}mm;
-    row-gap: ${rgMm}mm;
-  }
-  .label { page-break-inside: avoid; }
-  ${sharedLabelCss}`;
-      const labelsInner = selected.map((q) =>
-        `<div class="label">
-          <img src="${qrUrl(q.qrNumber, 600)}" alt="${q.qrNumber}" />
-          ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
-        </div>`
-      ).join("");
-      bodyHtml = `<div class="grid">${labelsInner}</div>`;
-    }
+
+    const bodyHtml = selected.map((q) =>
+      `<div class="label">
+        <img src="${qrUrl(q.qrNumber, 600)}" alt="${q.qrNumber}" />
+        ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
+      </div>`
+    ).join("");
 
     win.document.write(`<!DOCTYPE html>
 <html>
@@ -483,48 +453,6 @@ ${bodyHtml}
             </div>
 
             <div className="p-4 space-y-4">
-
-              {/* Print Mode */}
-              <div>
-                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Print Mode</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setPrintMode("roll")}
-                    className={cn(
-                      "flex flex-1 flex-col items-center gap-1 rounded border px-2 py-2 text-[10px] font-medium transition-colors",
-                      printMode === "roll"
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-ink-200 text-ink-500 hover:border-brand-300",
-                    )}
-                  >
-                    <Scroll className="h-3.5 w-3.5" />
-                    Label Roll
-                  </button>
-                  <button
-                    onClick={() => setPrintMode("sheet")}
-                    className={cn(
-                      "flex flex-1 flex-col items-center gap-1 rounded border px-2 py-2 text-[10px] font-medium transition-colors",
-                      printMode === "sheet"
-                        ? "border-brand-500 bg-brand-50 text-brand-700"
-                        : "border-ink-200 text-ink-500 hover:border-brand-300",
-                    )}
-                  >
-                    <LayoutGrid className="h-3.5 w-3.5" />
-                    Sheet Grid
-                  </button>
-                </div>
-
-                {printMode === "roll" && (
-                  <div className="mt-2 rounded-md bg-amber-50 border border-amber-200 p-2.5">
-                    <div className="flex gap-1.5">
-                      <Info className="h-3.5 w-3.5 flex-shrink-0 text-amber-600 mt-0.5" />
-                      <p className="text-[10px] leading-relaxed text-amber-800">
-                        <strong>For auto-alignment:</strong> In Windows, open <em>Printers &amp; Scanners</em> → your printer → <em>Printing Preferences</em> and enable <strong>Gap Detection</strong> or <strong>Label Calibration</strong>. The printer will then sense each sticker's gap and print exactly on it.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Size presets */}
               <div>
