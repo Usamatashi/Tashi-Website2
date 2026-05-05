@@ -142,10 +142,14 @@ export default function AdminPrintLabels() {
 
     const borderRadius = shape === "rounded" ? `${rMm}mm` : "0";
 
-    // Calculate the largest square QR that fits inside the label with padding.
-    // When showCode is true, reserve ~fontSize*0.35mm for the text line below.
-    const textReserve = showCode ? fontSize * 0.35 + 1 : 0;
-    const qrSideMm = Math.min(wMm - pdMm * 2, hMm - pdMm * 2 - textReserve);
+    // Largest square QR that fits inside the label with padding applied on all sides.
+    // When showCode is true, reserve space below for the text.
+    const textReserveMm = showCode ? fontSize * 0.35 + 1.5 : 0;
+    const qrSideMm = Math.min(wMm - pdMm * 2, hMm - pdMm * 2 - textReserveMm);
+
+    // Absolute offsets — no reliance on flexbox which thermal drivers ignore.
+    const qrTopMm  = (hMm - qrSideMm - textReserveMm) / 2;
+    const qrLeftMm = (wMm - qrSideMm) / 2;
 
     const labelHtml = selected.map((q) =>
       `<div class="label">
@@ -170,25 +174,33 @@ export default function AdminPrintLabels() {
     row-gap: ${rgMm}mm;
   }
   .label {
-    width: ${wMm}mm; height: ${hMm}mm;
+    width: ${wMm}mm;
+    height: ${hMm}mm;
     border: 0.3mm solid #000;
     border-radius: ${borderRadius};
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
+    position: relative;
+    display: block;
     overflow: hidden;
     page-break-inside: avoid;
   }
   .label img {
+    position: absolute;
     width: ${qrSideMm}mm;
     height: ${qrSideMm}mm;
+    top: ${qrTopMm}mm;
+    left: ${qrLeftMm}mm;
     display: block;
-    flex-shrink: 0;
   }
   .code {
-    font-size: ${fontSize}pt; text-align: center;
-    letter-spacing: 0.02em; margin-top: 0.8mm;
-    line-height: 1.1; word-break: break-all;
-    width: ${wMm - pdMm * 2}mm;
+    position: absolute;
+    bottom: ${pdMm}mm;
+    left: 0;
+    width: ${wMm}mm;
+    font-size: ${fontSize}pt;
+    text-align: center;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    word-break: break-all;
   }
 </style>
 </head>
