@@ -8,9 +8,8 @@ import { PageHeader, PageShell, Loading, Empty, Btn, Modal, Field, ErrorBanner, 
 
 function randomQRId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let s = "";
-  for (let i = 0; i < 10; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
+  const seg = (n: number) => Array.from({ length: n }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `${seg(8)}-${seg(8)}-${seg(8)}`;
 }
 
 export default function AdminQRCodes() {
