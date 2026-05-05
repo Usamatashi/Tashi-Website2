@@ -10,18 +10,13 @@ import { adminListQRCodes, type QRCode } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 interface LabelSettings {
-  width: number;   // cm
-  height: number;  // cm
+  width: number;    // cm
+  height: number;   // cm
   shape: "rect" | "rounded";
-  radius: number;  // cm
-  columns: number;
-  colGap: number;  // cm
-  rowGap: number;  // cm
-  pageMarginH: number; // cm
-  pageMarginV: number; // cm
+  radius: number;   // cm
   showCode: boolean;
-  fontSize: number;    // pt
-  qrPadding: number;   // cm
+  fontSize: number; // pt
+  qrPadding: number; // cm
 }
 
 const PRESETS: { label: string; w: number; h: number }[] = [
@@ -39,11 +34,6 @@ const DEFAULT: LabelSettings = {
   height: 3.0,
   shape: "rounded",
   radius: 0.4,
-  columns: 2,
-  colGap: 0.3,
-  rowGap: 0.3,
-  pageMarginH: 1.0,
-  pageMarginV: 1.0,
   showCode: false,
   fontSize: 7,
   qrPadding: 0.2,
@@ -128,17 +118,12 @@ export default function AdminPrintLabels() {
     const win = window.open("", "_blank", "width=900,height=700");
     if (!win) return;
 
-    const { width, height, shape, radius, columns, colGap, rowGap,
-      pageMarginH, pageMarginV, showCode, fontSize, qrPadding } = settings;
+    const { width, height, shape, radius, showCode, fontSize, qrPadding } = settings;
 
     // All cm → mm
     const wMm  = width  * 10;
     const hMm  = height * 10;
     const rMm  = radius * 10;
-    const cgMm = colGap * 10;
-    const rgMm = rowGap * 10;
-    const mhMm = pageMarginH * 10;
-    const mvMm = pageMarginV * 10;
     const pdMm = qrPadding * 10;
 
     const borderRadius = shape === "rounded" ? `${rMm}mm` : "0";
@@ -537,51 +522,6 @@ ${bodyHtml}
                     />
                   </div>
                 )}
-              </div>
-
-              {/* Layout */}
-              <div>
-                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Layout</label>
-                <div className="space-y-2">
-                  <div>
-                    <label className="mb-0.5 block text-[10px] text-ink-500">Columns — {settings.columns}</label>
-                    <input type="range" min={1} max={6} step={1} value={settings.columns}
-                      onChange={(e) => set("columns", Number(e.target.value))}
-                      className="w-full accent-brand-500" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="mb-0.5 block text-[10px] text-ink-500">Col gap (cm)</label>
-                      <input type="number" min={0} max={5} step={0.1}
-                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                        value={settings.colGap}
-                        onChange={(e) => set("colGap", Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] text-ink-500">Row gap (cm)</label>
-                      <input type="number" min={0} max={5} step={0.1}
-                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                        value={settings.rowGap}
-                        onChange={(e) => set("rowGap", Number(e.target.value))} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="mb-0.5 block text-[10px] text-ink-500">Margin H (cm)</label>
-                      <input type="number" min={0} max={10} step={0.1}
-                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                        value={settings.pageMarginH}
-                        onChange={(e) => set("pageMarginH", Number(e.target.value))} />
-                    </div>
-                    <div>
-                      <label className="mb-0.5 block text-[10px] text-ink-500">Margin V (cm)</label>
-                      <input type="number" min={0} max={10} step={0.1}
-                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                        value={settings.pageMarginV}
-                        onChange={(e) => set("pageMarginV", Number(e.target.value))} />
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Content */}
