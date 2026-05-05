@@ -142,9 +142,14 @@ export default function AdminPrintLabels() {
 
     const borderRadius = shape === "rounded" ? `${rMm}mm` : "0";
 
+    // Calculate the largest square QR that fits inside the label with padding.
+    // When showCode is true, reserve ~fontSize*0.35mm for the text line below.
+    const textReserve = showCode ? fontSize * 0.35 + 1 : 0;
+    const qrSideMm = Math.min(wMm - pdMm * 2, hMm - pdMm * 2 - textReserve);
+
     const labelHtml = selected.map((q) =>
       `<div class="label">
-        <img src="${qrUrl(q.qrNumber, 400)}" alt="${q.qrNumber}" />
+        <img src="${qrUrl(q.qrNumber, 600)}" alt="${q.qrNumber}" />
         ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
       </div>`
     ).join("");
@@ -170,14 +175,20 @@ export default function AdminPrintLabels() {
     border-radius: ${borderRadius};
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: ${pdMm}mm; overflow: hidden;
+    overflow: hidden;
     page-break-inside: avoid;
   }
-  .label img { width: 100%; flex: 1; object-fit: contain; min-height: 0; }
+  .label img {
+    width: ${qrSideMm}mm;
+    height: ${qrSideMm}mm;
+    display: block;
+    flex-shrink: 0;
+  }
   .code {
     font-size: ${fontSize}pt; text-align: center;
-    letter-spacing: 0.02em; margin-top: 0.5mm;
+    letter-spacing: 0.02em; margin-top: 0.8mm;
     line-height: 1.1; word-break: break-all;
+    width: ${wMm - pdMm * 2}mm;
   }
 </style>
 </head>
