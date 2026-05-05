@@ -1,58 +1,60 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Printer, Search, ChevronLeft, RefreshCw, CheckSquare, Square,
-  RectangleHorizontal, Maximize2,
+  Printer, Search, ChevronLeft, ChevronRight, RefreshCw,
+  CheckSquare, Square, RectangleHorizontal, Maximize2,
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from "lucide-react";
 import { adminListQRCodes, type QRCode } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 interface LabelSettings {
-  width: number;
-  height: number;
+  width: number;   // cm
+  height: number;  // cm
   shape: "rect" | "rounded";
-  radius: number;
+  radius: number;  // cm
   columns: number;
-  colGap: number;
-  rowGap: number;
-  pageMarginH: number;
-  pageMarginV: number;
+  colGap: number;  // cm
+  rowGap: number;  // cm
+  pageMarginH: number; // cm
+  pageMarginV: number; // cm
   showCode: boolean;
-  fontSize: number;
-  qrPadding: number;
+  fontSize: number;    // pt
+  qrPadding: number;   // cm
 }
 
 const PRESETS: { label: string; w: number; h: number }[] = [
-  { label: "38 × 25 mm", w: 38, h: 25 },
-  { label: "40 × 30 mm", w: 40, h: 30 },
-  { label: "50 × 25 mm", w: 50, h: 25 },
-  { label: "50 × 30 mm", w: 50, h: 30 },
-  { label: "60 × 40 mm", w: 60, h: 40 },
-  { label: "62 × 29 mm", w: 62, h: 29 },
-  { label: "100 × 50 mm", w: 100, h: 50 },
+  { label: "3.8 × 2.5 cm", w: 3.8, h: 2.5 },
+  { label: "4.0 × 3.0 cm", w: 4.0, h: 3.0 },
+  { label: "5.0 × 2.5 cm", w: 5.0, h: 2.5 },
+  { label: "5.0 × 3.0 cm", w: 5.0, h: 3.0 },
+  { label: "6.0 × 4.0 cm", w: 6.0, h: 4.0 },
+  { label: "6.2 × 2.9 cm", w: 6.2, h: 2.9 },
+  { label: "10 × 5.0 cm",  w: 10.0, h: 5.0 },
 ];
 
 const DEFAULT: LabelSettings = {
-  width: 50,
-  height: 30,
+  width: 5.0,
+  height: 3.0,
   shape: "rounded",
-  radius: 4,
+  radius: 0.4,
   columns: 2,
-  colGap: 3,
-  rowGap: 3,
-  pageMarginH: 10,
-  pageMarginV: 10,
-  showCode: true,
+  colGap: 0.3,
+  rowGap: 0.3,
+  pageMarginH: 1.0,
+  pageMarginV: 1.0,
+  showCode: false,
   fontSize: 7,
-  qrPadding: 2,
+  qrPadding: 0.2,
 };
 
 function qrUrl(code: string, size = 300) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&format=png&data=${encodeURIComponent(code)}`;
 }
 
-function mmToPx(mm: number, dpi = 96) {
-  return (mm / 25.4) * dpi;
+// cm → px for screen preview
+function cmToPx(cm: number, dpi = 96) {
+  return (cm / 2.54) * dpi;
 }
 
 export default function AdminPrintLabels() {
@@ -66,6 +68,8 @@ export default function AdminPrintLabels() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(passedIds));
   const [settings, setSettings] = useState<LabelSettings>(DEFAULT);
   const [activePreset, setActivePreset] = useState<number | null>(null);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
 
   useEffect(() => {
     adminListQRCodes()
@@ -100,19 +104,12 @@ export default function AdminPrintLabels() {
   }
 
   function toggleAll() {
-    if (filtered.every((r) => selectedIds.has(r.qrNumber))) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        filtered.forEach((r) => next.delete(r.qrNumber));
-        return next;
-      });
-    } else {
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        filtered.forEach((r) => next.add(r.qrNumber));
-        return next;
-      });
-    }
+    const allOn = filtered.every((r) => selectedIds.has(r.qrNumber));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      filtered.forEach((r) => allOn ? next.delete(r.qrNumber) : next.add(r.qrNumber));
+      return next;
+    });
   }
 
   function set<K extends keyof LabelSettings>(key: K, value: LabelSettings[K]) {
@@ -133,17 +130,24 @@ export default function AdminPrintLabels() {
     const { width, height, shape, radius, columns, colGap, rowGap,
       pageMarginH, pageMarginV, showCode, fontSize, qrPadding } = settings;
 
-    const labelHtml = selected
-      .map((q) => {
-        const imgSize = Math.round(mmToPx(Math.min(width, height) - qrPadding * 2, 150));
-        return `<div class="label">
-          <img src="${qrUrl(q.qrNumber, imgSize * 2)}" alt="${q.qrNumber}" />
-          ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
-        </div>`;
-      })
-      .join("");
+    // Convert all cm values to mm for print CSS
+    const wMm  = width  * 10;
+    const hMm  = height * 10;
+    const rMm  = radius * 10;
+    const cgMm = colGap * 10;
+    const rgMm = rowGap * 10;
+    const mhMm = pageMarginH * 10;
+    const mvMm = pageMarginV * 10;
+    const pdMm = qrPadding * 10;
 
-    const borderRadius = shape === "rounded" ? `${radius}mm` : "0";
+    const borderRadius = shape === "rounded" ? `${rMm}mm` : "0";
+
+    const labelHtml = selected.map((q) =>
+      `<div class="label">
+        <img src="${qrUrl(q.qrNumber, 400)}" alt="${q.qrNumber}" />
+        ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
+      </div>`
+    ).join("");
 
     win.document.write(`<!DOCTYPE html>
 <html>
@@ -153,43 +157,27 @@ export default function AdminPrintLabels() {
 <style>
   @page { margin: 0; size: auto; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    margin: ${pageMarginV}mm ${pageMarginH}mm;
-    font-family: monospace;
-    background: white;
-  }
+  body { margin: ${mvMm}mm ${mhMm}mm; font-family: monospace; background: white; }
   .grid {
     display: grid;
-    grid-template-columns: repeat(${columns}, ${width}mm);
-    column-gap: ${colGap}mm;
-    row-gap: ${rowGap}mm;
+    grid-template-columns: repeat(${columns}, ${wMm}mm);
+    column-gap: ${cgMm}mm;
+    row-gap: ${rgMm}mm;
   }
   .label {
-    width: ${width}mm;
-    height: ${height}mm;
+    width: ${wMm}mm; height: ${hMm}mm;
     border: 0.3mm solid #000;
     border-radius: ${borderRadius};
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: ${qrPadding}mm;
-    overflow: hidden;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: ${pdMm}mm; overflow: hidden;
     page-break-inside: avoid;
   }
-  .label img {
-    width: 100%;
-    flex: 1;
-    object-fit: contain;
-    min-height: 0;
-  }
+  .label img { width: 100%; flex: 1; object-fit: contain; min-height: 0; }
   .code {
-    font-size: ${fontSize}pt;
-    text-align: center;
-    letter-spacing: 0.02em;
-    margin-top: 0.5mm;
-    line-height: 1.1;
-    word-break: break-all;
+    font-size: ${fontSize}pt; text-align: center;
+    letter-spacing: 0.02em; margin-top: 0.5mm;
+    line-height: 1.1; word-break: break-all;
   }
 </style>
 </head>
@@ -197,15 +185,10 @@ export default function AdminPrintLabels() {
 <div class="grid">${labelHtml}</div>
 <script>
   window.onload = function() {
-    // wait for QR images to load
-    var imgs = document.querySelectorAll('img');
-    var loaded = 0;
-    function tryPrint() { loaded++; if (loaded >= imgs.length) window.print(); }
-    if (imgs.length === 0) { window.print(); return; }
-    imgs.forEach(function(img) {
-      if (img.complete) tryPrint();
-      else { img.onload = tryPrint; img.onerror = tryPrint; }
-    });
+    var imgs = document.querySelectorAll('img'), loaded = 0;
+    function tryPrint() { if (++loaded >= imgs.length) window.print(); }
+    if (!imgs.length) { window.print(); return; }
+    imgs.forEach(function(img) { img.complete ? tryPrint() : (img.onload = img.onerror = tryPrint); });
   };
 <\/script>
 </body>
@@ -213,29 +196,50 @@ export default function AdminPrintLabels() {
     win.document.close();
   }
 
-  const previewScale = 2.2;
-  const pxW = mmToPx(settings.width) * previewScale;
-  const pxH = mmToPx(settings.height) * previewScale;
+  const previewScale = 2.5;
+  const pxW = cmToPx(settings.width) * previewScale;
+  const pxH = cmToPx(settings.height) * previewScale;
   const previewCount = Math.min(selected.length, settings.columns * 3);
   const previewItems = selected.slice(0, previewCount);
 
   return (
     <div className="flex min-h-screen flex-col bg-ink-50">
-      {/* Top bar */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-ink-200 bg-white px-4 py-3 shadow-sm">
+
+      {/* ── Top bar ── */}
+      <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-ink-200 bg-white px-4 py-3 shadow-sm">
         <button
           onClick={() => navigate("/admin/qr-codes")}
-          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink-600 hover:bg-ink-100"
+          className="flex items-center gap-1 rounded-md px-2 py-1.5 text-sm text-ink-600 hover:bg-ink-100"
         >
-          <ChevronLeft className="h-4 w-4" />
-          Back
+          <ChevronLeft className="h-4 w-4" /> Back
         </button>
         <div className="flex items-center gap-2">
           <Printer className="h-5 w-5 text-brand-600" />
           <span className="font-semibold text-ink-900">Label Print Studio</span>
         </div>
+
+        {/* Panel toggles */}
+        <div className="flex items-center gap-1 ml-4">
+          <button
+            onClick={() => setLeftOpen((v) => !v)}
+            title={leftOpen ? "Hide QR selector" : "Show QR selector"}
+            className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+          >
+            {leftOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => setRightOpen((v) => !v)}
+            title={rightOpen ? "Hide settings" : "Show settings"}
+            className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+          >
+            {rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </button>
+        </div>
+
         <div className="ml-auto flex items-center gap-2">
-          <span className="text-sm text-ink-500">{selected.length} label{selected.length !== 1 ? "s" : ""} selected</span>
+          <span className="text-sm text-ink-500">
+            {selected.length} label{selected.length !== 1 ? "s" : ""} selected
+          </span>
           <button
             onClick={handlePrint}
             disabled={selected.length === 0}
@@ -246,49 +250,62 @@ export default function AdminPrintLabels() {
                 : "cursor-not-allowed bg-ink-200 text-ink-400",
             )}
           >
-            <Printer className="h-4 w-4" />
-            Print Labels
+            <Printer className="h-4 w-4" /> Print Labels
           </button>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
+
         {/* ── Left: QR selector ── */}
-        <aside className="flex w-64 flex-shrink-0 flex-col border-r border-ink-200 bg-white">
-          <div className="border-b border-ink-100 p-3">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
-              <input
-                className="w-full rounded-md border border-ink-200 bg-ink-50 py-1.5 pl-8 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                placeholder="Search QR or product…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+        {leftOpen && (
+          <aside className="flex w-64 flex-shrink-0 flex-col border-r border-ink-200 bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-ink-100 px-3 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+                Select QR Codes
+              </span>
+              <button onClick={() => setLeftOpen(false)} className="rounded p-0.5 text-ink-400 hover:text-ink-700">
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
             </div>
-          </div>
 
-          <div className="flex items-center justify-between border-b border-ink-100 px-3 py-1.5">
-            <button
-              onClick={toggleAll}
-              className="flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:text-brand-900"
-            >
-              {filtered.length > 0 && filtered.every((r) => selectedIds.has(r.qrNumber))
-                ? <CheckSquare className="h-3.5 w-3.5" />
-                : <Square className="h-3.5 w-3.5" />}
-              {filtered.every((r) => selectedIds.has(r.qrNumber)) ? "Deselect all" : "Select all"}
-            </button>
-            <span className="text-[10px] text-ink-400">{filtered.length} codes</span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div className="flex items-center justify-center py-10">
-                <RefreshCw className="h-5 w-5 animate-spin text-ink-400" />
+            {/* Search */}
+            <div className="border-b border-ink-100 p-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
+                <input
+                  className="w-full rounded-md border border-ink-200 bg-ink-50 py-1.5 pl-8 pr-2 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                  placeholder="Search QR or product…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
               </div>
-            ) : filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-xs text-ink-400">No QR codes found</p>
-            ) : (
-              filtered.map((q) => {
+            </div>
+
+            {/* Select all */}
+            <div className="flex items-center justify-between border-b border-ink-100 px-3 py-1.5">
+              <button
+                onClick={toggleAll}
+                className="flex items-center gap-1.5 text-xs font-medium text-brand-700 hover:text-brand-900"
+              >
+                {filtered.length > 0 && filtered.every((r) => selectedIds.has(r.qrNumber))
+                  ? <CheckSquare className="h-3.5 w-3.5" />
+                  : <Square className="h-3.5 w-3.5" />}
+                {filtered.every((r) => selectedIds.has(r.qrNumber)) ? "Deselect all" : "Select all"}
+              </button>
+              <span className="text-[10px] text-ink-400">{filtered.length} codes</span>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-10">
+                  <RefreshCw className="h-5 w-5 animate-spin text-ink-400" />
+                </div>
+              ) : filtered.length === 0 ? (
+                <p className="px-3 py-6 text-center text-xs text-ink-400">No QR codes found</p>
+              ) : filtered.map((q) => {
                 const on = selectedIds.has(q.qrNumber);
                 return (
                   <label
@@ -298,12 +315,8 @@ export default function AdminPrintLabels() {
                       on && "bg-brand-50",
                     )}
                   >
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 accent-brand-500"
-                      checked={on}
-                      onChange={() => toggleId(q.qrNumber)}
-                    />
+                    <input type="checkbox" className="mt-0.5 accent-brand-500" checked={on}
+                      onChange={() => toggleId(q.qrNumber)} />
                     <div className="min-w-0">
                       <div className="truncate font-mono text-[10px] font-semibold text-brand-700">
                         {q.qrNumber}
@@ -312,16 +325,32 @@ export default function AdminPrintLabels() {
                     </div>
                   </label>
                 );
-              })
-            )}
-          </div>
-        </aside>
+              })}
+            </div>
+          </aside>
+        )}
+
+        {/* Collapsed left tab */}
+        {!leftOpen && (
+          <button
+            onClick={() => setLeftOpen(true)}
+            className="flex w-8 flex-shrink-0 flex-col items-center justify-center gap-1 border-r border-ink-200 bg-white py-4 text-ink-400 hover:bg-ink-50 hover:text-ink-700"
+            title="Show QR selector"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+            <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-medium tracking-wider">
+              QR Codes
+            </span>
+          </button>
+        )}
 
         {/* ── Center: Preview ── */}
         <div className="flex flex-1 flex-col overflow-y-auto">
           <div className="border-b border-ink-200 bg-white px-5 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Label Preview</p>
-            <p className="text-[11px] text-ink-400 mt-0.5">Approximate — actual print uses exact mm measurements</p>
+            <p className="text-[11px] text-ink-400 mt-0.5">
+              Approximate — actual print uses exact cm measurements
+            </p>
           </div>
 
           <div className="flex-1 p-6">
@@ -334,7 +363,7 @@ export default function AdminPrintLabels() {
                 className="inline-grid rounded-md bg-white p-4 shadow-md"
                 style={{
                   gridTemplateColumns: `repeat(${settings.columns}, ${pxW}px)`,
-                  gap: `${mmToPx(settings.rowGap) * previewScale}px ${mmToPx(settings.colGap) * previewScale}px`,
+                  gap: `${cmToPx(settings.rowGap) * previewScale}px ${cmToPx(settings.colGap) * previewScale}px`,
                 }}
               >
                 {previewItems.map((q) => (
@@ -344,8 +373,10 @@ export default function AdminPrintLabels() {
                     style={{
                       width: pxW,
                       height: pxH,
-                      borderRadius: settings.shape === "rounded" ? mmToPx(settings.radius) * previewScale : 0,
-                      padding: mmToPx(settings.qrPadding) * previewScale,
+                      borderRadius: settings.shape === "rounded"
+                        ? cmToPx(settings.radius) * previewScale
+                        : 0,
+                      padding: cmToPx(settings.qrPadding) * previewScale,
                     }}
                   >
                     <img
@@ -357,7 +388,7 @@ export default function AdminPrintLabels() {
                     {settings.showCode && (
                       <div
                         className="w-full break-all text-center font-mono leading-tight text-ink-800"
-                        style={{ fontSize: Math.max(6, settings.fontSize * previewScale * 0.6) }}
+                        style={{ fontSize: Math.max(6, settings.fontSize * previewScale * 0.55) }}
                       >
                         {q.qrNumber}
                       </div>
@@ -369,184 +400,221 @@ export default function AdminPrintLabels() {
 
             {selected.length > previewCount && (
               <p className="mt-3 text-xs text-ink-400">
-                + {selected.length - previewCount} more label{selected.length - previewCount !== 1 ? "s" : ""} (not shown in preview)
+                + {selected.length - previewCount} more label{selected.length - previewCount !== 1 ? "s" : ""} not shown in preview
               </p>
             )}
           </div>
         </div>
 
-        {/* ── Right: Settings ── */}
-        <aside className="w-64 flex-shrink-0 overflow-y-auto border-l border-ink-200 bg-white p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-400">Label Settings</p>
-
-          {/* Size presets */}
-          <div className="mb-4">
-            <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Size Presets</label>
-            <div className="grid grid-cols-2 gap-1">
-              {PRESETS.map((p, i) => (
-                <button
-                  key={i}
-                  onClick={() => applyPreset(i)}
-                  className={cn(
-                    "rounded border px-1.5 py-1 text-[10px] font-medium transition-colors",
-                    activePreset === i
-                      ? "border-brand-500 bg-brand-50 text-brand-700"
-                      : "border-ink-200 text-ink-600 hover:border-brand-300 hover:bg-brand-50/50",
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Custom dimensions */}
-          <div className="mb-4 grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold text-ink-600">Width (mm)</label>
-              <input
-                type="number"
-                min={10} max={200}
-                className="w-full rounded border border-ink-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                value={settings.width}
-                onChange={(e) => { setActivePreset(null); set("width", Number(e.target.value)); }}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold text-ink-600">Height (mm)</label>
-              <input
-                type="number"
-                min={10} max={200}
-                className="w-full rounded border border-ink-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                value={settings.height}
-                onChange={(e) => { setActivePreset(null); set("height", Number(e.target.value)); }}
-              />
-            </div>
-          </div>
-
-          {/* Shape */}
-          <div className="mb-4">
-            <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Sticker Shape</label>
-            <div className="flex gap-2">
-              <button
-                onClick={() => set("shape", "rect")}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded border px-2 py-2 text-[11px] font-medium transition-colors",
-                  settings.shape === "rect"
-                    ? "border-brand-500 bg-brand-50 text-brand-700"
-                    : "border-ink-200 text-ink-500 hover:border-brand-300",
-                )}
-              >
-                <RectangleHorizontal className="h-3.5 w-3.5" />
-                Rectangle
-              </button>
-              <button
-                onClick={() => set("shape", "rounded")}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded border px-2 py-2 text-[11px] font-medium transition-colors",
-                  settings.shape === "rounded"
-                    ? "border-brand-500 bg-brand-50 text-brand-700"
-                    : "border-ink-200 text-ink-500 hover:border-brand-300",
-                )}
-              >
-                <Maximize2 className="h-3.5 w-3.5" />
-                Rounded
-              </button>
-            </div>
-
-            {settings.shape === "rounded" && (
-              <div className="mt-2">
-                <label className="mb-1 block text-[11px] text-ink-500">
-                  Corner radius — {settings.radius} mm
-                </label>
-                <input
-                  type="range"
-                  min={1} max={15} step={1}
-                  value={settings.radius}
-                  onChange={(e) => set("radius", Number(e.target.value))}
-                  className="w-full accent-brand-500"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Layout */}
-          <div className="mb-4">
-            <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Layout</label>
-            <div className="space-y-2">
-              <div>
-                <label className="mb-0.5 block text-[10px] text-ink-500">Columns — {settings.columns}</label>
-                <input type="range" min={1} max={6} step={1} value={settings.columns}
-                  onChange={(e) => set("columns", Number(e.target.value))}
-                  className="w-full accent-brand-500" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-0.5 block text-[10px] text-ink-500">Col gap (mm)</label>
-                  <input type="number" min={0} max={20} className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                    value={settings.colGap} onChange={(e) => set("colGap", Number(e.target.value))} />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] text-ink-500">Row gap (mm)</label>
-                  <input type="number" min={0} max={20} className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                    value={settings.rowGap} onChange={(e) => set("rowGap", Number(e.target.value))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-0.5 block text-[10px] text-ink-500">Page margin H (mm)</label>
-                  <input type="number" min={0} max={50} className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                    value={settings.pageMarginH} onChange={(e) => set("pageMarginH", Number(e.target.value))} />
-                </div>
-                <div>
-                  <label className="mb-0.5 block text-[10px] text-ink-500">Page margin V (mm)</label>
-                  <input type="number" min={0} max={50} className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
-                    value={settings.pageMarginV} onChange={(e) => set("pageMarginV", Number(e.target.value))} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="mb-4">
-            <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Content</label>
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-[11px] text-ink-700 cursor-pointer">
-                <input type="checkbox" className="accent-brand-500" checked={settings.showCode}
-                  onChange={(e) => set("showCode", e.target.checked)} />
-                Show QR number below code
-              </label>
-              {settings.showCode && (
-                <div>
-                  <label className="mb-0.5 block text-[10px] text-ink-500">Font size (pt) — {settings.fontSize}</label>
-                  <input type="range" min={5} max={14} step={1} value={settings.fontSize}
-                    onChange={(e) => set("fontSize", Number(e.target.value))}
-                    className="w-full accent-brand-500" />
-                </div>
-              )}
-              <div>
-                <label className="mb-0.5 block text-[10px] text-ink-500">QR inner padding (mm) — {settings.qrPadding}</label>
-                <input type="range" min={0} max={10} step={0.5} value={settings.qrPadding}
-                  onChange={(e) => set("qrPadding", Number(e.target.value))}
-                  className="w-full accent-brand-500" />
-              </div>
-            </div>
-          </div>
-
+        {/* Collapsed right tab */}
+        {!rightOpen && (
           <button
-            onClick={handlePrint}
-            disabled={selected.length === 0}
-            className={cn(
-              "mt-2 w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors",
-              selected.length > 0
-                ? "bg-brand-500 text-white hover:bg-brand-600"
-                : "cursor-not-allowed bg-ink-200 text-ink-400",
-            )}
+            onClick={() => setRightOpen(true)}
+            className="flex w-8 flex-shrink-0 flex-col items-center justify-center gap-1 border-l border-ink-200 bg-white py-4 text-ink-400 hover:bg-ink-50 hover:text-ink-700"
+            title="Show settings"
           >
-            <Printer className="h-4 w-4" />
-            Print {selected.length > 0 ? `${selected.length} Label${selected.length !== 1 ? "s" : ""}` : "Labels"}
+            <PanelRightOpen className="h-4 w-4" />
+            <span className="[writing-mode:vertical-rl] text-[10px] font-medium tracking-wider">
+              Settings
+            </span>
           </button>
-        </aside>
+        )}
+
+        {/* ── Right: Settings ── */}
+        {rightOpen && (
+          <aside className="w-64 flex-shrink-0 overflow-y-auto border-l border-ink-200 bg-white">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-ink-100 px-3 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+                Label Settings
+              </span>
+              <button onClick={() => setRightOpen(false)} className="rounded p-0.5 text-ink-400 hover:text-ink-700">
+                <PanelRightClose className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+
+              {/* Size presets */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Size Presets</label>
+                <div className="grid grid-cols-2 gap-1">
+                  {PRESETS.map((p, i) => (
+                    <button
+                      key={i}
+                      onClick={() => applyPreset(i)}
+                      className={cn(
+                        "rounded border px-1.5 py-1 text-[10px] font-medium transition-colors",
+                        activePreset === i
+                          ? "border-brand-500 bg-brand-50 text-brand-700"
+                          : "border-ink-200 text-ink-600 hover:border-brand-300 hover:bg-brand-50/50",
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom dimensions in cm */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-ink-600">Width (cm)</label>
+                  <input
+                    type="number" min={1} max={30} step={0.1}
+                    className="w-full rounded border border-ink-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                    value={settings.width}
+                    onChange={(e) => { setActivePreset(null); set("width", Number(e.target.value)); }}
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-ink-600">Height (cm)</label>
+                  <input
+                    type="number" min={1} max={30} step={0.1}
+                    className="w-full rounded border border-ink-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                    value={settings.height}
+                    onChange={(e) => { setActivePreset(null); set("height", Number(e.target.value)); }}
+                  />
+                </div>
+              </div>
+
+              {/* Shape */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Sticker Shape</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => set("shape", "rect")}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 rounded border px-2 py-2 text-[11px] font-medium transition-colors",
+                      settings.shape === "rect"
+                        ? "border-brand-500 bg-brand-50 text-brand-700"
+                        : "border-ink-200 text-ink-500 hover:border-brand-300",
+                    )}
+                  >
+                    <RectangleHorizontal className="h-3.5 w-3.5" /> Rectangle
+                  </button>
+                  <button
+                    onClick={() => set("shape", "rounded")}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 rounded border px-2 py-2 text-[11px] font-medium transition-colors",
+                      settings.shape === "rounded"
+                        ? "border-brand-500 bg-brand-50 text-brand-700"
+                        : "border-ink-200 text-ink-500 hover:border-brand-300",
+                    )}
+                  >
+                    <Maximize2 className="h-3.5 w-3.5" /> Rounded
+                  </button>
+                </div>
+                {settings.shape === "rounded" && (
+                  <div className="mt-2">
+                    <label className="mb-1 block text-[11px] text-ink-500">
+                      Corner radius — {settings.radius.toFixed(1)} cm
+                    </label>
+                    <input
+                      type="range" min={0.1} max={2} step={0.1}
+                      value={settings.radius}
+                      onChange={(e) => set("radius", Number(e.target.value))}
+                      className="w-full accent-brand-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Layout */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Layout</label>
+                <div className="space-y-2">
+                  <div>
+                    <label className="mb-0.5 block text-[10px] text-ink-500">Columns — {settings.columns}</label>
+                    <input type="range" min={1} max={6} step={1} value={settings.columns}
+                      onChange={(e) => set("columns", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">Col gap (cm)</label>
+                      <input type="number" min={0} max={5} step={0.1}
+                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
+                        value={settings.colGap}
+                        onChange={(e) => set("colGap", Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">Row gap (cm)</label>
+                      <input type="number" min={0} max={5} step={0.1}
+                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
+                        value={settings.rowGap}
+                        onChange={(e) => set("rowGap", Number(e.target.value))} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">Margin H (cm)</label>
+                      <input type="number" min={0} max={10} step={0.1}
+                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
+                        value={settings.pageMarginH}
+                        onChange={(e) => set("pageMarginH", Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">Margin V (cm)</label>
+                      <input type="number" min={0} max={10} step={0.1}
+                        className="w-full rounded border border-ink-200 px-2 py-1 text-xs"
+                        value={settings.pageMarginV}
+                        onChange={(e) => set("pageMarginV", Number(e.target.value))} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Content</label>
+                <div className="space-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink-700">
+                    <input type="checkbox" className="accent-brand-500" checked={settings.showCode}
+                      onChange={(e) => set("showCode", e.target.checked)} />
+                    Show QR number below code
+                  </label>
+                  {settings.showCode && (
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">
+                        Font size (pt) — {settings.fontSize}
+                      </label>
+                      <input type="range" min={5} max={14} step={1} value={settings.fontSize}
+                        onChange={(e) => set("fontSize", Number(e.target.value))}
+                        className="w-full accent-brand-500" />
+                    </div>
+                  )}
+                  <div>
+                    <label className="mb-0.5 block text-[10px] text-ink-500">
+                      Inner padding (cm) — {settings.qrPadding.toFixed(1)}
+                    </label>
+                    <input type="range" min={0} max={1} step={0.05} value={settings.qrPadding}
+                      onChange={(e) => set("qrPadding", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Print button */}
+              <button
+                onClick={handlePrint}
+                disabled={selected.length === 0}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors",
+                  selected.length > 0
+                    ? "bg-brand-500 text-white hover:bg-brand-600"
+                    : "cursor-not-allowed bg-ink-200 text-ink-400",
+                )}
+              >
+                <Printer className="h-4 w-4" />
+                Print {selected.length > 0
+                  ? `${selected.length} Label${selected.length !== 1 ? "s" : ""}`
+                  : "Labels"}
+              </button>
+
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   );
