@@ -188,8 +188,9 @@ export default function AdminPrintLabels() {
       pageStyle = `
   @page { size: ${wMm}mm ${hMm}mm; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: ${wMm}mm; height: ${hMm}mm; background: white; }
-  .label { page-break-after: always; }
+  html { margin: 0; padding: 0; }
+  body { margin: 0; padding: 0; background: white; }
+  .label { page-break-after: always; break-after: page; }
   ${sharedLabelCss}`;
       bodyHtml = selected.map((q) =>
         `<div class="label">
