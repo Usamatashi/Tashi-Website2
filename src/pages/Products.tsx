@@ -201,16 +201,18 @@ export default function Products() {
                   key={p.key}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-ink-100 bg-white transition-all hover:-translate-y-1 hover:border-brand-200 hover:shadow-lg"
                 >
-                  <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br from-ink-100 to-ink-50 sm:h-44">
+                  <div className="relative flex h-48 items-center justify-center overflow-hidden bg-white sm:h-52">
                     {p.imageUrl ? (
                       <img
                         src={p.imageUrl}
                         alt={p.name}
-                        className="h-full w-full object-contain p-4 transition-transform group-hover:scale-105"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
                         loading="lazy"
                       />
                     ) : (
-                      <Package className="h-12 w-12 text-ink-300 transition-colors group-hover:text-brand-400" />
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-ink-100 to-ink-50">
+                        <Package className="h-12 w-12 text-ink-300 transition-colors group-hover:text-brand-400" />
+                      </div>
                     )}
                     {p.badge && (
                       <span className="absolute top-3 left-3 rounded-full bg-brand-500 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white">

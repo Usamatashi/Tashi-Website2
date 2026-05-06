@@ -6,7 +6,7 @@ import {
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Empty, Btn, Modal, Field, ErrorBanner, Card } from "@/components/admin/ui";
 
-const CATEGORIES = ["disc_pad", "drum_shoe", "shoe_lining", "other"];
+const DEFAULT_CATEGORIES = ["disc_pad", "drum_shoe", "shoe_lining", "other"];
 
 export default function AdminProducts() {
   const [items, setItems] = useState<AdminProduct[]>([]);
@@ -21,6 +21,14 @@ export default function AdminProducts() {
     try { setItems(await adminListProducts()); } finally { setLoading(false); }
   }
   useEffect(() => { reload(); }, []);
+
+  const categories = useMemo(() => {
+    const seen = new Set<string>();
+    for (const p of items) if (p.category) seen.add(p.category);
+    const fromProducts = Array.from(seen);
+    const merged = [...new Set([...DEFAULT_CATEGORIES, ...fromProducts])];
+    return merged;
+  }, [items]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -51,7 +59,7 @@ export default function AdminProducts() {
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm">
           <Tag active={category === null} onClick={() => setCategory(null)}>All</Tag>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <Tag key={c} active={category === c} onClick={() => setCategory(c)}>{labelFor(c)}</Tag>
           ))}
         </div>
@@ -215,9 +223,18 @@ function ProductForm({
           )}
         </div>
         <Field label="Category">
-          <select className="input" value={category} onChange={(e) => setCategory(e.target.value)}>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{labelFor(c)}</option>)}
-          </select>
+          <input
+            className="input"
+            list="category-options"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="e.g. disc_pad, drum_shoe, or custom…"
+          />
+          <datalist id="category-options">
+            {DEFAULT_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{labelFor(c)}</option>
+            ))}
+          </datalist>
         </Field>
         {category !== "other" && (
           <div className="grid gap-4 sm:grid-cols-2">

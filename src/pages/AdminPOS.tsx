@@ -356,8 +356,9 @@ export default function AdminPOS() {
         {/* Cart items */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {cart.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-ink-300">
-              <ShoppingCart className="h-10 w-10 mb-2" /><p className="text-sm">Cart is empty</p>
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-ink-300">
+              <img src="/tashi-logo-transparent.png" alt="Tashi Brakes" className="h-20 w-auto opacity-25" />
+              <p className="text-sm text-ink-400">Cart is empty</p>
             </div>
           ) : (
             <div className="space-y-2">

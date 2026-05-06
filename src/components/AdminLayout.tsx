@@ -163,7 +163,7 @@ function SidebarBody({
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
         <Link to="/admin" className="flex items-center" onClick={onClose}>
-          <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-9 w-auto" />
+          <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-12 w-auto" />
         </Link>
         {onClose && (
           <button onClick={onClose} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100">
