@@ -7,7 +7,7 @@ import {
   FileDown, Loader2, Plus, Trash2, AlignLeft, AlignCenter, AlignRight,
   Bold,
 } from "lucide-react";
-import { adminListQRCodes, type QRCode } from "@/lib/admin";
+import { adminListQRCodes, adminMe, type QRCode } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 type LabelType = "qr" | "text" | "barcode";
@@ -174,6 +174,10 @@ export default function AdminPrintLabels() {
   const [activePreset, setActivePreset] = useState<number | null>(null);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+
+  useEffect(() => {
+    adminMe().catch(() => navigate("/admin/login", { replace: true }));
+  }, [navigate]);
 
   useEffect(() => {
     adminListQRCodes()

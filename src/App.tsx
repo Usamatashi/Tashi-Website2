@@ -42,6 +42,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin/print-labels" element={<AdminPrintLabels />} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminDashboard />} />
           <Route path="orders" element={<AdminOrders />} />
@@ -53,7 +54,6 @@ export default function App() {
           <Route path="commission" element={<AdminCommission />} />
           <Route path="commission/salesman/:salesmanId" element={<AdminSalesmanDetail />} />
           <Route path="qr-codes" element={<AdminQRCodes />} />
-          <Route path="print-labels" element={<AdminPrintLabels />} />
           <Route path="ads" element={<AdminAds />} />
           <Route path="ticker" element={<AdminTicker />} />
           <Route path="users" element={<AdminUsers />} />
