@@ -54,14 +54,15 @@ export default function Home() {
   return (
     <>
       {/* Hero — full-viewport video background */}
-      <section className="relative h-[calc(100svh-80px)] min-h-[500px] overflow-hidden text-white">
-        {/* Background video */}
+      <section className="relative h-[calc(100svh-80px)] min-h-[500px] overflow-hidden bg-gray-900 text-white">
+        {/* Background video — preload=none so it doesn't block initial render */}
         <video
           src="/hero.mp4"
           autoPlay
           muted
           loop
           playsInline
+          preload="none"
           className="absolute inset-0 h-full w-full object-cover"
         />
 

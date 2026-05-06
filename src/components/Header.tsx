@@ -33,6 +33,9 @@ export default function Header() {
           <img
             src="/tashi-logo-transparent.png"
             alt="Tashi Brakes"
+            fetchPriority="high"
+            width="160"
+            height="64"
             className="relative h-14 w-auto object-contain drop-shadow-[0_2px_6px_rgba(232,119,34,0.25)] transition-transform duration-300 group-hover:scale-105 sm:h-16"
           />
         </Link>
