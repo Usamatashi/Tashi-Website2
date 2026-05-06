@@ -4,18 +4,18 @@ import {
   Printer, Search, ChevronLeft, RefreshCw,
   CheckSquare, Square, RectangleHorizontal, Maximize2,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
-
+  FileDown, Loader2,
 } from "lucide-react";
 import { adminListQRCodes, type QRCode } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 interface LabelSettings {
-  width: number;    // cm
-  height: number;   // cm
+  width: number;     // cm
+  height: number;    // cm
   shape: "rect" | "rounded";
-  radius: number;   // cm
+  radius: number;    // cm
   showCode: boolean;
-  fontSize: number; // pt
+  fontSize: number;  // pt
   qrPadding: number; // cm
 }
 
@@ -39,11 +39,12 @@ const DEFAULT: LabelSettings = {
   qrPadding: 0.2,
 };
 
+const CM_TO_PT = 28.3465; // 1 cm = 28.3465 PDF points
+
 function qrUrl(code: string, size = 300) {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&format=png&data=${encodeURIComponent(code)}`;
 }
 
-// cm → px for screen preview
 function cmToPx(cm: number, dpi = 96) {
   return (cm / 2.54) * dpi;
 }
@@ -55,6 +56,7 @@ export default function AdminPrintLabels() {
 
   const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(passedIds));
   const [settings, setSettings] = useState<LabelSettings>(DEFAULT);
@@ -113,98 +115,69 @@ export default function AdminPrintLabels() {
     setSettings((s) => ({ ...s, width: p.w, height: p.h }));
   }
 
-  function handlePrint() {
-    if (selected.length === 0) return;
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) return;
+  async function handleGeneratePDF() {
+    if (selected.length === 0 || generating) return;
+    setGenerating(true);
+    try {
+      const { PDFDocument, rgb } = await import("pdf-lib");
+      const pdfDoc = await PDFDocument.create();
 
-    const { width, height, shape, radius, showCode, fontSize, qrPadding } = settings;
+      const { width, height, showCode, fontSize, qrPadding } = settings;
 
-    // All cm → mm
-    const wMm  = width  * 10;
-    const hMm  = height * 10;
-    const rMm  = radius * 10;
-    const pdMm = qrPadding * 10;
+      const wPt  = width  * CM_TO_PT;
+      const hPt  = height * CM_TO_PT;
+      const pdPt = qrPadding * CM_TO_PT;
 
-    const borderRadius = shape === "rounded" ? `${rMm}mm` : "0";
-    const textReserveMm = showCode ? fontSize * 0.35 + 1.5 : 0;
-    const qrSideMm = Math.min(wMm - pdMm * 2, hMm - pdMm * 2 - textReserveMm);
-    const qrTopMm  = (hMm - qrSideMm - textReserveMm) / 2;
-    const qrLeftMm = (wMm - qrSideMm) / 2;
+      // Reserve space at bottom for text if needed
+      const textReservePt = showCode ? fontSize * 1.4 + pdPt : 0;
 
-    const sharedLabelCss = `
-  .label {
-    border: 0.3mm solid #000;
-    border-radius: ${borderRadius};
-    position: relative;
-    display: block;
-    overflow: hidden;
-    width: ${wMm}mm;
-    height: ${hMm}mm;
-  }
-  .label img {
-    position: absolute;
-    width: ${qrSideMm}mm;
-    height: ${qrSideMm}mm;
-    top: ${qrTopMm}mm;
-    left: ${qrLeftMm}mm;
-    display: block;
-  }
-  .code {
-    position: absolute;
-    bottom: ${pdMm}mm;
-    left: 0;
-    width: ${wMm}mm;
-    font-size: ${fontSize}pt;
-    text-align: center;
-    letter-spacing: 0.02em;
-    line-height: 1.1;
-    word-break: break-all;
-  }`;
+      // QR size fits within padding, leaving room for text
+      const qrSizePt = Math.min(wPt - pdPt * 2, hPt - pdPt * 2 - textReservePt);
 
-    const pageStyle = `
-  @page { size: ${wMm}mm ${hMm}mm; margin: 0; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { margin: 0; padding: 0; }
-  body { margin: 0; padding: 0; background: white; }
-  .label { page-break-after: always; break-after: page; }
-  ${sharedLabelCss}`;
+      // Center QR in available area (PDF y=0 is bottom)
+      const qrX = (wPt - qrSizePt) / 2;
+      const qrY = textReservePt + (hPt - textReservePt - qrSizePt) / 2;
 
-    const bodyHtml = selected.map((q) =>
-      `<div class="label">
-        <img src="${qrUrl(q.qrNumber, 600)}" alt="${q.qrNumber}" />
-        ${showCode ? `<div class="code">${q.qrNumber}</div>` : ""}
-      </div>`
-    ).join("");
+      for (const q of selected) {
+        const page = pdfDoc.addPage([wPt, hPt]);
 
-    win.document.write(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8"/>
-<title>QR Labels — Tashi Brakes</title>
-<style>${pageStyle}
-</style>
-</head>
-<body>
-${bodyHtml}
-<script>
-  window.onload = function() {
-    var imgs = document.querySelectorAll('img'), loaded = 0;
-    function tryPrint() { if (++loaded >= imgs.length) window.print(); }
-    if (!imgs.length) { window.print(); return; }
-    imgs.forEach(function(img) { img.complete ? tryPrint() : (img.onload = img.onerror = tryPrint); });
-  };
-<\/script>
-</body>
-</html>`);
-    win.document.close();
+        // Fetch the QR PNG and embed it
+        const res = await fetch(qrUrl(q.qrNumber, 600));
+        const bytes = await res.arrayBuffer();
+        const img = await pdfDoc.embedPng(bytes);
+
+        page.drawImage(img, { x: qrX, y: qrY, width: qrSizePt, height: qrSizePt });
+
+        if (showCode) {
+          const textWidth = q.qrNumber.length * fontSize * 0.5;
+          page.drawText(q.qrNumber, {
+            x: Math.max(pdPt, (wPt - textWidth) / 2),
+            y: pdPt,
+            size: fontSize,
+            color: rgb(0, 0, 0),
+          });
+        }
+      }
+
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `tashi-labels-${selected.length}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setGenerating(false);
+    }
   }
 
   const previewScale = 2.5;
   const pxW = cmToPx(settings.width) * previewScale;
   const pxH = cmToPx(settings.height) * previewScale;
-  const previewCount = Math.min(selected.length, settings.columns * 3);
-  const previewItems = selected.slice(0, previewCount);
+  const previewItems = selected.slice(0, 8);
 
   return (
     <div className="flex min-h-screen flex-col bg-ink-50">
@@ -222,7 +195,6 @@ ${bodyHtml}
           <span className="font-semibold text-ink-900">Label Print Studio</span>
         </div>
 
-        {/* Panel toggles */}
         <div className="flex items-center gap-1 ml-4">
           <button
             onClick={() => setLeftOpen((v) => !v)}
@@ -245,16 +217,18 @@ ${bodyHtml}
             {selected.length} label{selected.length !== 1 ? "s" : ""} selected
           </span>
           <button
-            onClick={handlePrint}
-            disabled={selected.length === 0}
+            onClick={handleGeneratePDF}
+            disabled={selected.length === 0 || generating}
             className={cn(
               "flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition-colors",
-              selected.length > 0
+              selected.length > 0 && !generating
                 ? "bg-brand-500 text-white hover:bg-brand-600"
                 : "cursor-not-allowed bg-ink-200 text-ink-400",
             )}
           >
-            <Printer className="h-4 w-4" /> Print Labels
+            {generating
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+              : <><FileDown className="h-4 w-4" /> Download PDF</>}
           </button>
         </div>
       </div>
@@ -264,7 +238,6 @@ ${bodyHtml}
         {/* ── Left: QR selector ── */}
         {leftOpen && (
           <aside className="flex w-64 flex-shrink-0 flex-col border-r border-ink-200 bg-white">
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-ink-100 px-3 py-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
                 Select QR Codes
@@ -274,7 +247,6 @@ ${bodyHtml}
               </button>
             </div>
 
-            {/* Search */}
             <div className="border-b border-ink-100 p-2">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
@@ -287,7 +259,6 @@ ${bodyHtml}
               </div>
             </div>
 
-            {/* Select all */}
             <div className="flex items-center justify-between border-b border-ink-100 px-3 py-1.5">
               <button
                 onClick={toggleAll}
@@ -301,7 +272,6 @@ ${bodyHtml}
               <span className="text-[10px] text-ink-400">{filtered.length} codes</span>
             </div>
 
-            {/* List */}
             <div className="flex-1 overflow-y-auto">
               {loading ? (
                 <div className="flex items-center justify-center py-10">
@@ -334,7 +304,6 @@ ${bodyHtml}
           </aside>
         )}
 
-        {/* Collapsed left tab */}
         {!leftOpen && (
           <button
             onClick={() => setLeftOpen(true)}
@@ -353,8 +322,19 @@ ${bodyHtml}
           <div className="border-b border-ink-200 bg-white px-5 py-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Label Preview</p>
             <p className="text-[11px] text-ink-400 mt-0.5">
-              Approximate — actual print uses exact cm measurements
+              Screen preview — the downloaded PDF uses exact cm measurements
             </p>
+          </div>
+
+          {/* How-to-print instruction */}
+          <div className="mx-5 mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+            <p className="text-[11px] font-semibold text-blue-800 mb-1">How to print perfectly</p>
+            <ol className="list-decimal list-inside space-y-0.5 text-[11px] text-blue-700">
+              <li>Click <strong>Download PDF</strong> — one label per page, exact size</li>
+              <li>Open the PDF in <strong>Adobe Acrobat Reader</strong></li>
+              <li>File → Print → set Size to <strong>"Actual size"</strong> (not "Fit" or "Shrink")</li>
+              <li>Select your <strong>4BARCODE</strong> printer → Print</li>
+            </ol>
           </div>
 
           <div className="flex-1 p-6">
@@ -363,17 +343,11 @@ ${bodyHtml}
                 Select QR codes from the left panel to preview
               </div>
             ) : (
-              <div
-                className="inline-grid rounded-md bg-white p-4 shadow-md"
-                style={{
-                  gridTemplateColumns: `repeat(${settings.columns}, ${pxW}px)`,
-                  gap: `${cmToPx(settings.rowGap) * previewScale}px ${cmToPx(settings.colGap) * previewScale}px`,
-                }}
-              >
+              <div className="flex flex-wrap gap-4">
                 {previewItems.map((q) => (
                   <div
                     key={q.qrNumber}
-                    className="flex flex-col items-center justify-center overflow-hidden border border-ink-300 bg-white"
+                    className="flex flex-col items-center justify-center overflow-hidden border border-ink-300 bg-white shadow-sm"
                     style={{
                       width: pxW,
                       height: pxH,
@@ -402,15 +376,14 @@ ${bodyHtml}
               </div>
             )}
 
-            {selected.length > previewCount && (
+            {selected.length > previewItems.length && (
               <p className="mt-3 text-xs text-ink-400">
-                + {selected.length - previewCount} more label{selected.length - previewCount !== 1 ? "s" : ""} not shown in preview
+                + {selected.length - previewItems.length} more label{selected.length - previewItems.length !== 1 ? "s" : ""} not shown in preview
               </p>
             )}
           </div>
         </div>
 
-        {/* Collapsed right tab */}
         {!rightOpen && (
           <button
             onClick={() => setRightOpen(true)}
@@ -427,7 +400,6 @@ ${bodyHtml}
         {/* ── Right: Settings ── */}
         {rightOpen && (
           <aside className="w-64 flex-shrink-0 overflow-y-auto border-l border-ink-200 bg-white">
-            {/* Header */}
             <div className="flex items-center justify-between border-b border-ink-100 px-3 py-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
                 Label Settings
@@ -460,7 +432,7 @@ ${bodyHtml}
                 </div>
               </div>
 
-              {/* Custom dimensions in cm */}
+              {/* Custom dimensions */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="mb-1 block text-[11px] font-semibold text-ink-600">Width (cm)</label>
@@ -509,19 +481,6 @@ ${bodyHtml}
                     <Maximize2 className="h-3.5 w-3.5" /> Rounded
                   </button>
                 </div>
-                {settings.shape === "rounded" && (
-                  <div className="mt-2">
-                    <label className="mb-1 block text-[11px] text-ink-500">
-                      Corner radius — {settings.radius.toFixed(1)} cm
-                    </label>
-                    <input
-                      type="range" min={0.1} max={2} step={0.1}
-                      value={settings.radius}
-                      onChange={(e) => set("radius", Number(e.target.value))}
-                      className="w-full accent-brand-500"
-                    />
-                  </div>
-                )}
               </div>
 
               {/* Content */}
@@ -545,7 +504,7 @@ ${bodyHtml}
                   )}
                   <div>
                     <label className="mb-0.5 block text-[10px] text-ink-500">
-                      Inner padding (cm) — {settings.qrPadding.toFixed(1)}
+                      Inner padding (cm) — {settings.qrPadding.toFixed(2)}
                     </label>
                     <input type="range" min={0} max={1} step={0.05} value={settings.qrPadding}
                       onChange={(e) => set("qrPadding", Number(e.target.value))}
@@ -554,21 +513,24 @@ ${bodyHtml}
                 </div>
               </div>
 
-              {/* Print button */}
+              {/* Download button */}
               <button
-                onClick={handlePrint}
-                disabled={selected.length === 0}
+                onClick={handleGeneratePDF}
+                disabled={selected.length === 0 || generating}
                 className={cn(
                   "w-full flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold transition-colors",
-                  selected.length > 0
+                  selected.length > 0 && !generating
                     ? "bg-brand-500 text-white hover:bg-brand-600"
                     : "cursor-not-allowed bg-ink-200 text-ink-400",
                 )}
               >
-                <Printer className="h-4 w-4" />
-                Print {selected.length > 0
-                  ? `${selected.length} Label${selected.length !== 1 ? "s" : ""}`
-                  : "Labels"}
+                {generating
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                  : <><FileDown className="h-4 w-4" />
+                    {selected.length > 0
+                      ? `Download ${selected.length} Label${selected.length !== 1 ? "s" : ""} PDF`
+                      : "Download PDF"}
+                  </>}
               </button>
 
             </div>
