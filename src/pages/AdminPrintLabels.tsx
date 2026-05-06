@@ -10,13 +10,15 @@ import { adminListQRCodes, type QRCode } from "@/lib/admin";
 import { cn } from "@/lib/utils";
 
 interface LabelSettings {
-  width: number;     // cm
-  height: number;    // cm
+  width: number;      // cm
+  height: number;     // cm
   shape: "rect" | "rounded";
-  radius: number;    // cm
+  radius: number;     // cm corner radius
+  qrScale: number;    // 0–1, fraction of available space the QR fills
+  qrPadding: number;  // cm space between sticker edge and QR
+  showBorder: boolean;
   showCode: boolean;
-  fontSize: number;  // pt
-  qrPadding: number; // cm
+  fontSize: number;   // pt
 }
 
 const PRESETS: { label: string; w: number; h: number }[] = [
@@ -34,9 +36,11 @@ const DEFAULT: LabelSettings = {
   height: 3.0,
   shape: "rounded",
   radius: 0.4,
+  qrScale: 0.85,
+  qrPadding: 0.2,
+  showBorder: false,
   showCode: false,
   fontSize: 7,
-  qrPadding: 0.2,
 };
 
 const CM_TO_PT = 28.3465; // 1 cm = 28.3465 PDF points
@@ -119,27 +123,43 @@ export default function AdminPrintLabels() {
     if (selected.length === 0 || generating) return;
     setGenerating(true);
     try {
-      const { PDFDocument, rgb } = await import("pdf-lib");
+      const { PDFDocument, rgb, LineCapStyle } = await import("pdf-lib");
       const pdfDoc = await PDFDocument.create();
 
-      const { width, height, showCode, fontSize, qrPadding } = settings;
+      const { width, height, showCode, fontSize, qrPadding, qrScale, showBorder } = settings;
 
       const wPt  = width  * CM_TO_PT;
       const hPt  = height * CM_TO_PT;
       const pdPt = qrPadding * CM_TO_PT;
 
-      // Reserve space at bottom for text if needed
+      // Reserve space at bottom for text if needed (PDF y=0 is bottom)
       const textReservePt = showCode ? fontSize * 1.4 + pdPt : 0;
 
-      // QR size fits within padding, leaving room for text
-      const qrSizePt = Math.min(wPt - pdPt * 2, hPt - pdPt * 2 - textReservePt);
+      // Available inner area after padding
+      const availW = wPt - pdPt * 2;
+      const availH = hPt - pdPt * 2 - textReservePt;
 
-      // Center QR in available area (PDF y=0 is bottom)
+      // QR side = qrScale fraction of the smaller dimension
+      const maxQr = Math.min(availW, availH);
+      const qrSizePt = maxQr * qrScale;
+
+      // Center QR within the page
       const qrX = (wPt - qrSizePt) / 2;
-      const qrY = textReservePt + (hPt - textReservePt - qrSizePt) / 2;
+      const qrY = textReservePt + pdPt + (availH - qrSizePt) / 2;
 
       for (const q of selected) {
         const page = pdfDoc.addPage([wPt, hPt]);
+
+        // Optional thin border outline
+        if (showBorder) {
+          page.drawRectangle({
+            x: 1, y: 1,
+            width: wPt - 2, height: hPt - 2,
+            borderColor: rgb(0, 0, 0),
+            borderWidth: 0.5,
+            color: undefined,
+          });
+        }
 
         // Fetch the QR PNG and embed it
         const res = await fetch(qrUrl(q.qrNumber, 600));
@@ -149,7 +169,8 @@ export default function AdminPrintLabels() {
         page.drawImage(img, { x: qrX, y: qrY, width: qrSizePt, height: qrSizePt });
 
         if (showCode) {
-          const textWidth = q.qrNumber.length * fontSize * 0.5;
+          const charW = fontSize * 0.52;
+          const textWidth = q.qrNumber.length * charW;
           page.drawText(q.qrNumber, {
             x: Math.max(pdPt, (wPt - textWidth) / 2),
             y: pdPt,
@@ -481,12 +502,53 @@ export default function AdminPrintLabels() {
                     <Maximize2 className="h-3.5 w-3.5" /> Rounded
                   </button>
                 </div>
+                {settings.shape === "rounded" && (
+                  <div className="mt-2">
+                    <label className="mb-0.5 block text-[10px] text-ink-500">
+                      Corner radius — {settings.radius.toFixed(1)} cm
+                    </label>
+                    <input type="range" min={0.1} max={2} step={0.1}
+                      value={settings.radius}
+                      onChange={(e) => set("radius", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                  </div>
+                )}
+              </div>
+
+              {/* Spacing */}
+              <div>
+                <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Spacing</label>
+                <div className="space-y-2">
+                  <div>
+                    <label className="mb-0.5 block text-[10px] text-ink-500">
+                      Edge padding — {settings.qrPadding.toFixed(2)} cm
+                    </label>
+                    <input type="range" min={0} max={1} step={0.05} value={settings.qrPadding}
+                      onChange={(e) => set("qrPadding", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                    <p className="mt-0.5 text-[9px] text-ink-400">Space between sticker edge and QR code</p>
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[10px] text-ink-500">
+                      QR code size — {Math.round(settings.qrScale * 100)}%
+                    </label>
+                    <input type="range" min={0.4} max={1} step={0.05} value={settings.qrScale}
+                      onChange={(e) => set("qrScale", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                    <p className="mt-0.5 text-[9px] text-ink-400">How much of the inner area the QR fills</p>
+                  </div>
+                </div>
               </div>
 
               {/* Content */}
               <div>
                 <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Content</label>
                 <div className="space-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink-700">
+                    <input type="checkbox" className="accent-brand-500" checked={settings.showBorder}
+                      onChange={(e) => set("showBorder", e.target.checked)} />
+                    Print border outline in PDF
+                  </label>
                   <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink-700">
                     <input type="checkbox" className="accent-brand-500" checked={settings.showCode}
                       onChange={(e) => set("showCode", e.target.checked)} />
@@ -502,14 +564,6 @@ export default function AdminPrintLabels() {
                         className="w-full accent-brand-500" />
                     </div>
                   )}
-                  <div>
-                    <label className="mb-0.5 block text-[10px] text-ink-500">
-                      Inner padding (cm) — {settings.qrPadding.toFixed(2)}
-                    </label>
-                    <input type="range" min={0} max={1} step={0.05} value={settings.qrPadding}
-                      onChange={(e) => set("qrPadding", Number(e.target.value))}
-                      className="w-full accent-brand-500" />
-                  </div>
                 </div>
               </div>
 
