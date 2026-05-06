@@ -16,6 +16,8 @@ interface LabelSettings {
   radius: number;     // cm corner radius
   marginH: number;    // cm left/right margin inside sticker
   marginV: number;    // cm top/bottom margin inside sticker
+  offsetX: number;    // cm horizontal nudge (+right / -left)
+  offsetY: number;    // cm vertical nudge (+up / -down)
   qrScale: number;    // 0–1, fraction of available space the QR fills
   showBorder: boolean;
   textMode: "none" | "qrNumber" | "productName" | "custom";
@@ -40,6 +42,8 @@ const DEFAULT: LabelSettings = {
   radius: 0.4,
   marginH: 0.15,
   marginV: 0.15,
+  offsetX: 0,
+  offsetY: 0,
   qrScale: 0.85,
   showBorder: false,
   textMode: "none",
@@ -125,12 +129,14 @@ export default function AdminPrintLabels() {
       const { PDFDocument, rgb, LineCapStyle } = await import("pdf-lib");
       const pdfDoc = await PDFDocument.create();
 
-      const { width, height, marginH, marginV, qrScale, showBorder, textMode, customText, fontSize } = settings;
+      const { width, height, marginH, marginV, offsetX, offsetY, qrScale, showBorder, textMode, customText, fontSize } = settings;
 
       const wPt  = width  * CM_TO_PT;
       const hPt  = height * CM_TO_PT;
       const mhPt = marginH * CM_TO_PT;
       const mvPt = marginV * CM_TO_PT;
+      const oxPt = offsetX * CM_TO_PT;
+      const oyPt = offsetY * CM_TO_PT;
 
       const hasText = textMode !== "none";
       const textReservePt = hasText ? fontSize * 1.4 + mvPt : 0;
@@ -142,9 +148,9 @@ export default function AdminPrintLabels() {
       // QR size as a fraction of the smaller inner dimension
       const qrSizePt = Math.min(innerW, innerH) * qrScale;
 
-      // Center QR within the inner area
-      const qrX = (wPt - qrSizePt) / 2;
-      const qrY = textReservePt + mvPt + (innerH - qrSizePt) / 2;
+      // Center QR then apply offset nudge
+      const qrX = (wPt - qrSizePt) / 2 + oxPt;
+      const qrY = textReservePt + mvPt + (innerH - qrSizePt) / 2 + oyPt;
 
       for (const q of selected) {
         const page = pdfDoc.addPage([wPt, hPt]);
@@ -543,6 +549,48 @@ export default function AdminPrintLabels() {
                     <input type="range" min={0.4} max={1} step={0.05} value={settings.qrScale}
                       onChange={(e) => set("qrScale", Number(e.target.value))}
                       className="w-full accent-brand-500" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Position offset */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-semibold text-ink-600">Position Offset</label>
+                  {(settings.offsetX !== 0 || settings.offsetY !== 0) && (
+                    <button
+                      onClick={() => { set("offsetX", 0); set("offsetY", 0); }}
+                      className="text-[10px] text-brand-600 hover:text-brand-800 font-medium"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+                <p className="mb-2 text-[9px] text-ink-400">Nudge the print position if it comes out slightly off-center</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-0.5 block text-[10px] text-ink-500">
+                      Horizontal — {settings.offsetX >= 0 ? "+" : ""}{settings.offsetX.toFixed(2)} cm
+                    </label>
+                    <input type="range" min={-1} max={1} step={0.05}
+                      value={settings.offsetX}
+                      onChange={(e) => set("offsetX", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                    <div className="flex justify-between text-[8px] text-ink-300 mt-0.5">
+                      <span>← Left</span><span>Right →</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-0.5 block text-[10px] text-ink-500">
+                      Vertical — {settings.offsetY >= 0 ? "+" : ""}{settings.offsetY.toFixed(2)} cm
+                    </label>
+                    <input type="range" min={-1} max={1} step={0.05}
+                      value={settings.offsetY}
+                      onChange={(e) => set("offsetY", Number(e.target.value))}
+                      className="w-full accent-brand-500" />
+                    <div className="flex justify-between text-[8px] text-ink-300 mt-0.5">
+                      <span>↓ Down</span><span>Up ↑</span>
+                    </div>
                   </div>
                 </div>
               </div>
