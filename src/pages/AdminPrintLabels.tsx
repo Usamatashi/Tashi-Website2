@@ -100,7 +100,7 @@ function cmToPx(cm: number, dpi = 96) {
 
 async function barcodeToDataURL(value: string, bcid: string, scale: number, showText: boolean): Promise<string> {
   const canvas = document.createElement("canvas");
-  const bwipjs = await import("bwip-js");
+  const bwipjs = await import("bwip-js/browser");
   bwipjs.toCanvas(canvas, {
     bcid,
     text: value,
@@ -122,7 +122,7 @@ function BarcodePreview({ value, bcid, scale, showText, width, height, marginH, 
   useEffect(() => {
     if (!value.trim() || !canvasRef.current) { setErr(""); return; }
     setErr("");
-    import("bwip-js").then((bwipjs) => {
+    import("bwip-js/browser").then((bwipjs) => {
       try {
         bwipjs.toCanvas(canvasRef.current!, {
           bcid, text: value, scale, includetext: showText, backgroundcolor: "ffffff",
@@ -621,36 +621,6 @@ export default function AdminPrintLabels() {
                 </div>
 
                 <div>
-                  <label className="mb-1 block text-[10px] font-semibold text-ink-500">Barcode Type</label>
-                  <select
-                    className="w-full rounded border border-ink-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-                    value={settings.barcodeType}
-                    onChange={(e) => set("barcodeType", e.target.value)}
-                  >
-                    {BARCODE_TYPES.map((t) => (
-                      <option key={t.id} value={t.id}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[10px] font-semibold text-ink-500">
-                    Render scale — {settings.barcodeScale}×
-                  </label>
-                  <input type="range" min={1} max={5} step={0.5} value={settings.barcodeScale}
-                    onChange={(e) => set("barcodeScale", Number(e.target.value))}
-                    className="w-full accent-brand-500" />
-                  <p className="text-[9px] text-ink-400 mt-0.5">Higher = sharper bars, larger image</p>
-                </div>
-
-                <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink-700">
-                  <input type="checkbox" className="accent-brand-500"
-                    checked={settings.barcodeShowText}
-                    onChange={(e) => set("barcodeShowText", e.target.checked)} />
-                  Show human-readable number
-                </label>
-
-                <div>
                   <label className="mb-1 block text-[10px] font-semibold text-ink-500">Copies</label>
                   <input type="number" min={1} max={500} step={1}
                     className="w-full rounded border border-ink-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
@@ -1034,7 +1004,43 @@ export default function AdminPrintLabels() {
                 </div>
               )}
 
-              {/* Text/Barcode: just border checkbox */}
+              {/* Barcode-specific settings */}
+              {settings.labelType === "barcode" && (
+                <div>
+                  <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Barcode Options</label>
+                  <div className="space-y-2">
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">Barcode Type</label>
+                      <select
+                        className="w-full rounded border border-ink-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
+                        value={settings.barcodeType}
+                        onChange={(e) => set("barcodeType", e.target.value)}
+                      >
+                        {BARCODE_TYPES.map((t) => (
+                          <option key={t.id} value={t.id}>{t.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-ink-500">
+                        Render scale — {settings.barcodeScale}×
+                      </label>
+                      <input type="range" min={1} max={5} step={0.5} value={settings.barcodeScale}
+                        onChange={(e) => set("barcodeScale", Number(e.target.value))}
+                        className="w-full accent-brand-500" />
+                      <p className="text-[9px] text-ink-400 mt-0.5">Higher = sharper bars</p>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 text-[11px] text-ink-700">
+                      <input type="checkbox" className="accent-brand-500"
+                        checked={settings.barcodeShowText}
+                        onChange={(e) => set("barcodeShowText", e.target.checked)} />
+                      Show human-readable number
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Text/Barcode: border checkbox */}
               {settings.labelType !== "qr" && (
                 <div>
                   <label className="mb-1.5 block text-[11px] font-semibold text-ink-600">Content</label>
