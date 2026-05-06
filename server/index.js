@@ -33,9 +33,14 @@ const ALLOWED_ORIGINS = [
   ...(process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(",").map(o => o.trim()) : []),
 ];
 
+function isReplitOrigin(origin) {
+  if (!origin) return false;
+  return origin.endsWith(".replit.dev") || origin.endsWith(".replit.app") || origin.endsWith(".repl.co");
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+  if (origin && (ALLOWED_ORIGINS.includes(origin) || isReplitOrigin(origin))) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
