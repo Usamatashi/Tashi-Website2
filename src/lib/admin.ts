@@ -413,9 +413,11 @@ export async function adminGetPOSSaleStats() {
 export type SalesTx = {
   id: string; type: "pos" | "wholesale"; ref: string;
   customer: string; customerId: string | null;
-  amount: number; createdAt: string; paymentMethod: string;
+  amount: number; netAmount: number; refundedAmount: number;
+  returned: boolean; returnRefs: string[];
+  createdAt: string; paymentMethod: string;
   status: string | null; itemCount: number;
-  items: { productName: string; qty: number; unitPrice: number; discountPct: number; lineTotal: number; sku?: string; productId?: number }[];
+  items: { productName: string; qty: number; unitPrice: number; discountPct: number; lineTotal: number; sku?: string; productId?: number | null }[];
   raw?: unknown;
 };
 export type SalesAnalyticsStats = {
@@ -429,6 +431,7 @@ export type SalesAnalyticsResult = {
   stats: SalesAnalyticsStats; chartData: SalesChartPoint[];
   topProducts: TopProduct[]; transactions: SalesTx[];
 };
+export type SalesAutocompleteOptions = { customers: string[]; products: string[] };
 export async function adminGetSalesAnalytics(params: { from?: string; to?: string; channel?: string; customer?: string; product?: string } = {}) {
   const q = new URLSearchParams();
   if (params.from) q.set("from", params.from);
@@ -437,6 +440,9 @@ export async function adminGetSalesAnalytics(params: { from?: string; to?: strin
   if (params.customer) q.set("customer", params.customer);
   if (params.product) q.set("product", params.product);
   return handle<SalesAnalyticsResult>(await apiFetch(`/api/admin/sales-analytics?${q}`, j()));
+}
+export async function adminGetSalesAutocompleteOptions() {
+  return handle<SalesAutocompleteOptions>(await apiFetch("/api/admin/sales-analytics/options", j()));
 }
 
 // ── POS Returns ───────────────────────────────────────────────────────────

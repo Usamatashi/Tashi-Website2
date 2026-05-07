@@ -13,6 +13,45 @@ function parseDate(str) {
   return isNaN(d) ? null : d;
 }
 
+// ── GET /options — all customers & products for autocomplete ───────────────
+router.get("/options", async (req, res) => {
+  try {
+    const [custSnap, prodSnap, ordersSnap] = await Promise.all([
+      db.collection("pos_customers").get(),
+      db.collection("products").get(),
+      db.collection("orders").get(),
+    ]);
+
+    const customers = new Set();
+    custSnap.forEach((d) => { if (d.data().name) customers.add(d.data().name); });
+
+    // Wholesale retailer names
+    const retailerIds = [...new Set(
+      ordersSnap.docs.filter((d) => d.data().source !== "website").map((d) => d.data().retailerId).filter(Boolean)
+    )];
+    if (retailerIds.length) {
+      const userDocs = await db.getAll(...retailerIds.map((id) => db.collection("users").doc(String(id))));
+      userDocs.forEach((d) => { if (d.exists && d.data().name) customers.add(d.data().name); });
+    }
+
+    const products = new Set();
+    prodSnap.forEach((d) => {
+      const name = d.data().name || d.data().title || d.data().productName;
+      if (name) products.add(name);
+    });
+
+    res.json({
+      customers: [...customers].sort(),
+      products: [...products].sort(),
+    });
+  } catch (err) {
+    console.error("sales-analytics/options:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── fetch helpers ─────────────────────────────────────────────────────────
+
 async function fetchPOSSales(fromDate, toDate) {
   const snap = await db.collection("pos_sales").orderBy("createdAt", "desc").get();
   return snap.docs
@@ -24,7 +63,7 @@ async function fetchPOSSales(fromDate, toDate) {
         type: "pos",
         ref: data.saleNumber || `POS-${d.id}`,
         customer: data.customerName || "Walk-in",
-        customerId: data.customerId || null,
+        customerId: data.customerId ? String(data.customerId) : null,
         amount: toNum(data.total),
         createdAt: ct,
         paymentMethod: data.paymentMethod || "cash",
@@ -36,8 +75,7 @@ async function fetchPOSSales(fromDate, toDate) {
           discountPct: toNum(i.discountPct),
           lineTotal: toNum(i.lineTotal),
           sku: i.sku || "",
-          productId: i.productId,
-          discountPct_pos: toNum(i.discountPct),
+          productId: i.productId != null ? toNum(i.productId) : null,
         })),
         raw: data,
       };
@@ -82,7 +120,7 @@ async function fetchWholesaleOrders(fromDate, toDate) {
           discountPct,
           lineTotal: Math.round(totalValue * (1 - discountPct / 100)),
           sku: "",
-          productId: item.productId,
+          productId: item.productId != null ? toNum(item.productId) : null,
         });
       });
     }
@@ -94,7 +132,7 @@ async function fetchWholesaleOrders(fromDate, toDate) {
     let items = itemsMap[o.id] || [];
     if (!items.length && o.productId && o.quantity) {
       const totalValue = toNum(o.quantity) * toNum(o.salesPrice);
-      items = [{ productName: o.productName || "—", qty: toNum(o.quantity), unitPrice: toNum(o.salesPrice), discountPct: 0, lineTotal: totalValue, sku: "", productId: o.productId }];
+      items = [{ productName: o.productName || "—", qty: toNum(o.quantity), unitPrice: toNum(o.salesPrice), discountPct: 0, lineTotal: totalValue, sku: "", productId: o.productId != null ? toNum(o.productId) : null }];
     }
     const subtotal = items.reduce((s, i) => s + i.lineTotal, 0);
     const amount = Math.round(subtotal * (1 - billDiscountPct / 100));
@@ -114,6 +152,7 @@ async function fetchWholesaleOrders(fromDate, toDate) {
   });
 }
 
+// ── GET / — combined analytics ─────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
     const now = new Date();
@@ -131,12 +170,36 @@ router.get("/", async (req, res) => {
     const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
-    const [rawPOS, rawWS] = await Promise.all([
+    // Fetch all data in parallel
+    const [rawPOS, rawWS, returnsSnap] = await Promise.all([
       channel !== "wholesale" ? fetchPOSSales(fromDate, toDate) : Promise.resolve([]),
       channel !== "pos" ? fetchWholesaleOrders(fromDate, toDate) : Promise.resolve([]),
+      db.collection("pos_returns").get(),
     ]);
 
-    let allSales = [...rawPOS, ...rawWS].sort((a, b) => b.createdAt - a.createdAt);
+    // Build returns map: saleId -> { totalRefunded, returnRefs[] }
+    const returnsMap = {};
+    returnsSnap.forEach((d) => {
+      const r = d.data();
+      if (!r.saleId) return;
+      if (!returnsMap[r.saleId]) returnsMap[r.saleId] = { totalRefunded: 0, returnRefs: [] };
+      returnsMap[r.saleId].totalRefunded += toNum(r.totalRefund);
+      if (r.returnNumber) returnsMap[r.saleId].returnRefs.push(r.returnNumber);
+    });
+
+    // Mark returned POS sales and adjust netAmount
+    const markedPOS = rawPOS.map((s) => {
+      const ret = returnsMap[s.id];
+      if (ret) {
+        const netAmount = Math.max(0, s.amount - ret.totalRefunded);
+        return { ...s, returned: true, returnRefs: ret.returnRefs, refundedAmount: ret.totalRefunded, netAmount };
+      }
+      return { ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount };
+    });
+
+    const markedWS = rawWS.map((s) => ({ ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount }));
+
+    let allSales = [...markedPOS, ...markedWS].sort((a, b) => b.createdAt - a.createdAt);
 
     if (customerSearch) {
       allSales = allSales.filter((s) => s.customer.toLowerCase().includes(customerSearch));
@@ -147,27 +210,32 @@ router.get("/", async (req, res) => {
       );
     }
 
-    const totalRevenue = allSales.reduce((s, x) => s + x.amount, 0);
-    const posRevenue = allSales.filter((x) => x.type === "pos").reduce((s, x) => s + x.amount, 0);
-    const wsRevenue = allSales.filter((x) => x.type === "wholesale").reduce((s, x) => s + x.amount, 0);
+    // Revenue uses netAmount (deducts returns)
+    const totalRevenue = allSales.reduce((s, x) => s + x.netAmount, 0);
+    const posRevenue = allSales.filter((x) => x.type === "pos").reduce((s, x) => s + x.netAmount, 0);
+    const wsRevenue = allSales.filter((x) => x.type === "wholesale").reduce((s, x) => s + x.netAmount, 0);
 
-    const todayAll = [...rawPOS, ...rawWS].filter((s) => s.createdAt >= todayStart && s.createdAt <= todayEnd);
-    const todayRevenue = todayAll.reduce((s, x) => s + x.amount, 0);
-    const todayPOSRevenue = todayAll.filter((x) => x.type === "pos").reduce((s, x) => s + x.amount, 0);
-    const todayWSRevenue = todayAll.filter((x) => x.type === "wholesale").reduce((s, x) => s + x.amount, 0);
+    // Today stats — use all fetched data regardless of date filter
+    const todayAll = [...markedPOS, ...markedWS].filter((s) => s.createdAt >= todayStart && s.createdAt <= todayEnd);
+    const todayRevenue = todayAll.reduce((s, x) => s + x.netAmount, 0);
+    const todayPOSRevenue = todayAll.filter((x) => x.type === "pos").reduce((s, x) => s + x.netAmount, 0);
+    const todayWSRevenue = todayAll.filter((x) => x.type === "wholesale").reduce((s, x) => s + x.netAmount, 0);
 
+    // Chart data — group by day, use netAmount
     const chartMap = {};
     for (const s of allSales) {
       const day = s.createdAt.toISOString().slice(0, 10);
       if (!chartMap[day]) chartMap[day] = { date: day, pos: 0, wholesale: 0, total: 0 };
-      if (s.type === "pos") chartMap[day].pos += s.amount;
-      else chartMap[day].wholesale += s.amount;
-      chartMap[day].total += s.amount;
+      if (s.type === "pos") chartMap[day].pos += s.netAmount;
+      else chartMap[day].wholesale += s.netAmount;
+      chartMap[day].total += s.netAmount;
     }
     const chartData = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date));
 
+    // Top products — skip fully returned sales
     const productMap = {};
     for (const s of allSales) {
+      if (s.returned && s.netAmount === 0) continue;
       for (const item of s.items) {
         const name = item.productName || "—";
         if (!productMap[name]) productMap[name] = { name, qty: 0, revenue: 0 };
@@ -188,6 +256,10 @@ router.get("/", async (req, res) => {
         customer: s.customer,
         customerId: s.customerId,
         amount: s.amount,
+        netAmount: s.netAmount,
+        refundedAmount: s.refundedAmount,
+        returned: s.returned,
+        returnRefs: s.returnRefs,
         createdAt: s.createdAt.toISOString(),
         paymentMethod: s.paymentMethod,
         status: s.status,
