@@ -260,15 +260,14 @@ export default function AdminPOSSales() {
             </ResponsiveContainer>
           </div>
 
-          <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm overflow-hidden">
             <div className="mb-2 font-semibold text-ink-900">Channel Split</div>
             <div className="text-xs text-ink-400 mb-3">Revenue by source</div>
-            <ResponsiveContainer width="100%" height={140}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+            <ResponsiveContainer width="100%" height={150}>
+              <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={38} outerRadius={58} paddingAngle={3} dataKey="value">
                   {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
                 </Pie>
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
                 <ReTooltip formatter={(v: number) => fmtPrice(v)} />
               </PieChart>
             </ResponsiveContainer>
