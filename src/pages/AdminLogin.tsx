@@ -43,125 +43,102 @@ export default function AdminLogin() {
 
   if (checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
+      <div className="flex min-h-screen items-center justify-center bg-white">
         <Loader2 className="h-7 w-7 animate-spin text-brand-500" />
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-screen overflow-hidden">
-      {/* Left panel — navy */}
-      <div className="hidden w-1/2 flex-col items-center justify-center bg-[#0f172a] px-12 lg:flex">
-        <div className="max-w-sm text-center">
-          <img src="/tashi-logo-transparent.png" alt="Tashi" className="mx-auto mb-8 h-24 w-auto drop-shadow-2xl" />
-          <h2 className="text-3xl font-bold text-white">Tashi Brakes</h2>
-          <p className="mt-3 text-base leading-relaxed text-slate-400">
-            Manage your inventory, orders, sales team, and operations from one powerful dashboard.
-          </p>
-          <div className="mt-10 flex justify-center gap-8 text-center">
-            {[["Orders", "Live"], ["Team", "Managed"], ["POS", "Integrated"]].map(([label, sub]) => (
-              <div key={label}>
-                <div className="text-lg font-bold text-brand-500">{label}</div>
-                <div className="text-xs text-slate-500">{sub}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+    <div className="relative flex min-h-screen items-center justify-center bg-white px-4 py-12">
+      <Link
+        to="/"
+        className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 sm:left-6 sm:top-6"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to site
+      </Link>
 
-      {/* Right panel — white */}
-      <div className="flex w-full flex-col items-center justify-center bg-white px-6 py-12 lg:w-1/2">
-        <Link
-          to="/"
-          className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 lg:left-auto lg:right-8 lg:top-6"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to site
-        </Link>
-
-        <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="mb-8 flex flex-col items-center lg:hidden">
-            <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-16 w-auto" />
-          </div>
-
+      <div className="w-full max-w-sm">
+        {/* Logo + heading centered */}
+        <div className="mb-8 flex flex-col items-center text-center">
+          <img src="/tashi-logo-transparent.png" alt="Tashi" className="mb-6 h-28 w-auto" />
           <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-slate-500">Sign in to your admin account to continue</p>
-
-          <form onSubmit={onSubmit} className="mt-8 space-y-5">
-            {/* Phone */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="tel"
-                  required
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="03XX XXXXXXX"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Your app password"
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-11 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
-                <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition hover:bg-brand-600 hover:shadow-brand-500/35 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting ? (
-                <><Loader2 className="h-4 w-4 animate-spin" />Signing in…</>
-              ) : (
-                <><Lock className="h-4 w-4" />Sign in</>
-              )}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-xs text-slate-400">
-            Administration use only. Unauthorised access is strictly prohibited.
-          </p>
+          <p className="mt-1.5 text-sm text-slate-500">Sign in to your admin account to continue</p>
         </div>
+
+        <form onSubmit={onSubmit} className="space-y-5">
+          {/* Phone */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              Phone Number
+            </label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="tel"
+                required
+                autoComplete="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="03XX XXXXXXX"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
+              />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
+              Password
+            </label>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your app password"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-11 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? (
+              <><Loader2 className="h-4 w-4 animate-spin" />Signing in…</>
+            ) : (
+              <><Lock className="h-4 w-4" />Sign in</>
+            )}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-xs text-slate-400">
+          Administration use only. Unauthorised access is strictly prohibited.
+        </p>
       </div>
     </div>
   );
