@@ -24,7 +24,7 @@ router.get("/", async (req, res) => {
 
 router.post("/", async (req, res) => {
   try {
-    const { supplierId, supplierName, items, paymentStatus, notes, date } = req.body;
+    const { supplierId, supplierName, items, paymentStatus, amountPaid, notes, date } = req.body;
     if (!items?.length) return res.status(400).json({ error: "At least one item is required" });
     const id = await nextId("purchases");
     const purchaseNumber = `PO-${padNum(id)}`;
@@ -36,13 +36,15 @@ router.post("/", async (req, res) => {
       lineTotal: toNum(i.qty) * toNum(i.unitCost),
     }));
     const totalAmount = cleanItems.reduce((s, i) => s + i.lineTotal, 0);
+    const status = ["unpaid", "partial", "paid"].includes(paymentStatus) ? paymentStatus : "unpaid";
     const doc = {
       id, purchaseNumber,
       supplierId: supplierId ? String(supplierId) : null,
       supplierName: sanitize(supplierName, 200),
       items: cleanItems,
       totalAmount: Math.round(totalAmount),
-      paymentStatus: ["unpaid", "partial", "paid"].includes(paymentStatus) ? paymentStatus : "unpaid",
+      amountPaid: status === "paid" ? Math.round(totalAmount) : (status === "partial" ? toNum(amountPaid) : 0),
+      paymentStatus: status,
       notes: sanitize(notes, 1000),
       date: sanitize(date, 20) || new Date().toISOString().slice(0, 10),
       recordedBy: req.admin?.userId ?? null,
@@ -56,12 +58,19 @@ router.post("/", async (req, res) => {
 router.patch("/:id", async (req, res) => {
   try {
     const ref = db.collection("purchases").doc(req.params.id);
-    if (!(await ref.get()).exists) return res.status(404).json({ error: "Purchase not found" });
-    const { paymentStatus, notes } = req.body;
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: "Purchase not found" });
+    const existing = snap.data();
+    const { paymentStatus, amountPaid, notes } = req.body;
     const update = {};
     if (paymentStatus !== undefined) {
       if (!["unpaid", "partial", "paid"].includes(paymentStatus)) return res.status(400).json({ error: "Invalid paymentStatus" });
       update.paymentStatus = paymentStatus;
+      if (paymentStatus === "paid") update.amountPaid = existing.totalAmount || 0;
+      else if (paymentStatus === "unpaid") update.amountPaid = 0;
+    }
+    if (amountPaid !== undefined && update.paymentStatus !== "paid" && update.paymentStatus !== "unpaid") {
+      update.amountPaid = toNum(amountPaid);
     }
     if (notes !== undefined) update.notes = sanitize(notes, 1000);
     await ref.update(update);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight, RotateCcw,
-  Package, CheckCircle2, Clock, AlertCircle,
+  CheckCircle2, Clock, AlertCircle,
 } from "lucide-react";
 import {
   adminListPurchases, adminCreatePurchase, adminUpdatePurchase, adminDeletePurchase,
@@ -20,10 +20,15 @@ const PAYMENT_STATUS: { key: Purchase["paymentStatus"]; label: string; color: st
 type PurchaseItem = { productName: string; sku: string; qty: string; unitCost: string };
 const emptyItem = (): PurchaseItem => ({ productName: "", sku: "", qty: "1", unitCost: "" });
 
-type PurchaseForm = { supplierId: string; supplierName: string; paymentStatus: Purchase["paymentStatus"]; notes: string; date: string; items: PurchaseItem[] };
+type PurchaseForm = {
+  supplierId: string; supplierName: string;
+  paymentStatus: Purchase["paymentStatus"];
+  amountPaid: string;
+  notes: string; date: string; items: PurchaseItem[];
+};
 const emptyPurchaseForm = (): PurchaseForm => ({
   supplierId: "", supplierName: "", paymentStatus: "unpaid",
-  notes: "", date: new Date().toISOString().slice(0, 10), items: [emptyItem()],
+  amountPaid: "", notes: "", date: new Date().toISOString().slice(0, 10), items: [emptyItem()],
 });
 
 type ReturnItem = { productName: string; sku: string; qty: string; unitCost: string; lineTotal: string };
@@ -44,6 +49,9 @@ export default function AdminPurchases() {
   const [returnReason, setReturnReason] = useState("");
   const [returnErr, setReturnErr] = useState<string | null>(null);
   const [returnSaving, setReturnSaving] = useState(false);
+  // Inline partial payment editing
+  const [editingPayment, setEditingPayment] = useState<string | null>(null);
+  const [paymentInput, setPaymentInput] = useState("");
 
   useEffect(() => {
     Promise.all([adminListPurchases(), adminListPurchaseReturns(), adminListSuppliers()])
@@ -67,12 +75,16 @@ export default function AdminPurchases() {
     if (!form.items.length || form.items.some((i) => !i.productName.trim() || Number(i.qty) <= 0 || Number(i.unitCost) <= 0)) {
       setErr("All items must have a name, quantity, and cost"); return;
     }
+    if (form.paymentStatus === "partial" && (!form.amountPaid || Number(form.amountPaid) <= 0)) {
+      setErr("Enter the amount already paid for partial payment"); return;
+    }
     setSaving(true);
     try {
       const created = await adminCreatePurchase({
         supplierId: form.supplierId || null,
         supplierName: form.supplierName,
         paymentStatus: form.paymentStatus,
+        amountPaid: form.paymentStatus === "partial" ? Number(form.amountPaid) : undefined,
         notes: form.notes,
         date: form.date,
         items: form.items.map((i) => ({ productName: i.productName, sku: i.sku, qty: Number(i.qty), unitCost: Number(i.unitCost), lineTotal: Number(i.qty) * Number(i.unitCost) })),
@@ -84,8 +96,21 @@ export default function AdminPurchases() {
   }
 
   async function handlePaymentStatus(p: Purchase, status: Purchase["paymentStatus"]) {
+    if (status === "partial") {
+      setEditingPayment(p.id);
+      setPaymentInput(String(p.amountPaid || ""));
+      return;
+    }
     const updated = await adminUpdatePurchase(p.id, { paymentStatus: status });
     setPurchases((prev) => prev.map((x) => x.id === p.id ? updated : x));
+  }
+
+  async function savePartialPayment(p: Purchase) {
+    const amount = Number(paymentInput);
+    if (isNaN(amount) || amount < 0) return;
+    const updated = await adminUpdatePurchase(p.id, { paymentStatus: "partial", amountPaid: amount });
+    setPurchases((prev) => prev.map((x) => x.id === p.id ? updated : x));
+    setEditingPayment(null);
   }
 
   async function handleDelete(p: Purchase) {
@@ -129,7 +154,7 @@ export default function AdminPurchases() {
 
   const totalPurchased = purchases.reduce((s, p) => s + p.totalAmount, 0);
   const totalReturned = returns.reduce((s, r) => s + r.totalReturn, 0);
-  const unpaidCount = purchases.filter((p) => p.paymentStatus === "unpaid").length;
+  const totalCredit = purchases.filter((p) => p.paymentStatus !== "paid").reduce((s, p) => s + Math.max(0, p.totalAmount - (p.amountPaid || 0)), 0);
 
   return (
     <PageShell>
@@ -142,13 +167,14 @@ export default function AdminPurchases() {
           <div className="text-xs font-semibold uppercase tracking-wider text-blue-400">Total Purchased</div>
           <div className="mt-2 font-display text-3xl font-bold text-blue-700">{formatPrice(totalPurchased)}</div>
         </div>
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-amber-500">Credit Outstanding</div>
+          <div className="mt-2 font-display text-3xl font-bold text-amber-700">{formatPrice(totalCredit)}</div>
+          <div className="text-xs text-amber-500">{purchases.filter((p) => p.paymentStatus !== "paid").length} unpaid/partial</div>
+        </div>
         <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-red-400">Total Returns</div>
           <div className="mt-2 font-display text-3xl font-bold text-red-600">{formatPrice(totalReturned)}</div>
-        </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-          <div className="text-xs font-semibold uppercase tracking-wider text-amber-500">Unpaid Orders</div>
-          <div className="mt-2 font-display text-3xl font-bold text-amber-700">{unpaidCount}</div>
         </div>
       </div>
 
@@ -171,6 +197,7 @@ export default function AdminPurchases() {
               {purchases.map((p) => {
                 const isExp = expanded === p.id;
                 const statusInfo = PAYMENT_STATUS.find((s) => s.key === p.paymentStatus)!;
+                const outstanding = Math.max(0, p.totalAmount - (p.amountPaid || 0));
                 return (
                   <div key={p.id}>
                     <button className="flex w-full items-center gap-4 px-5 py-3 text-left hover:bg-ink-50 transition-colors" onClick={() => setExpanded(isExp ? null : p.id)}>
@@ -181,11 +208,17 @@ export default function AdminPurchases() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-xs font-semibold text-blue-600">{p.purchaseNumber}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusInfo.color}`}>{statusInfo.label}</span>
+                          {p.paymentStatus === "partial" && p.amountPaid > 0 && (
+                            <span className="text-[10px] text-ink-400">Paid {formatPrice(p.amountPaid)} · Owed {formatPrice(outstanding)}</span>
+                          )}
                         </div>
                         <div className="text-xs text-ink-500">{p.supplierName || "No supplier"} · {formatDate(p.createdAt)} · {p.items.length} item{p.items.length !== 1 ? "s" : ""}</div>
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="font-bold text-ink-900">{formatPrice(p.totalAmount)}</div>
+                        {p.paymentStatus !== "paid" && outstanding > 0 && (
+                          <div className="text-xs text-amber-600 font-semibold">Owed: {formatPrice(outstanding)}</div>
+                        )}
                       </div>
                       <div className="flex gap-1 flex-shrink-0">
                         <button onClick={(e) => { e.stopPropagation(); openReturn(p); }} className="rounded-lg p-1.5 text-ink-400 hover:bg-amber-50 hover:text-amber-600 transition-colors" title="Return"><RotateCcw className="h-3.5 w-3.5" /></button>
@@ -206,7 +239,7 @@ export default function AdminPurchases() {
                           </tbody>
                         </table>
                         {p.notes && <p className="mb-3 text-xs text-ink-400 italic">{p.notes}</p>}
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs text-ink-500">Payment:</span>
                           {PAYMENT_STATUS.map((s) => (
                             <button key={s.key} onClick={() => handlePaymentStatus(p, s.key)}
@@ -214,6 +247,15 @@ export default function AdminPurchases() {
                               {s.label}
                             </button>
                           ))}
+                          {editingPayment === p.id && (
+                            <div className="flex items-center gap-1 ml-2">
+                              <input type="number" min="0" value={paymentInput} onChange={(e) => setPaymentInput(e.target.value)}
+                                placeholder="Amount paid" autoFocus
+                                className="w-32 rounded-lg border border-amber-300 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                              <button onClick={() => savePartialPayment(p)} className="rounded-lg bg-amber-500 px-2 py-1 text-xs font-semibold text-white hover:bg-amber-600">Save</button>
+                              <button onClick={() => setEditingPayment(null)} className="rounded-lg px-2 py-1 text-xs text-ink-500 hover:bg-ink-200">Cancel</button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -293,12 +335,23 @@ export default function AdminPurchases() {
           <Field label="Payment Status">
             <div className="mt-1 flex gap-2">
               {PAYMENT_STATUS.map((s) => (
-                <button key={s.key} type="button" onClick={() => setForm({ ...form, paymentStatus: s.key })}
+                <button key={s.key} type="button" onClick={() => setForm({ ...form, paymentStatus: s.key, amountPaid: s.key !== "partial" ? "" : form.amountPaid })}
                   className={`rounded-full px-3 py-1.5 text-xs font-bold transition-all ${form.paymentStatus === s.key ? s.color + " ring-2 ring-offset-1 ring-current" : "bg-ink-100 text-ink-500 hover:bg-ink-200"}`}>
                   {s.label}
                 </button>
               ))}
             </div>
+            {form.paymentStatus === "partial" && (
+              <div className="mt-2">
+                <input type="number" min="0" max={formTotal} value={form.amountPaid}
+                  onChange={(e) => setForm({ ...form, amountPaid: e.target.value })}
+                  placeholder="Amount already paid (PKR)"
+                  className="w-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                {form.amountPaid && Number(form.amountPaid) > 0 && (
+                  <p className="mt-1 text-xs text-amber-600">Outstanding: {formatPrice(Math.max(0, formTotal - Number(form.amountPaid)))}</p>
+                )}
+              </div>
+            )}
           </Field>
           <div>
             <div className="mb-2 flex items-center justify-between">

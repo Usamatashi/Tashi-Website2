@@ -538,6 +538,16 @@ export type Supplier = {
   id: string; name: string; phone: string | null; email: string | null;
   address: string | null; city: string | null; notes: string | null; createdAt: string | null;
 };
+export type SupplierCreditPayment = {
+  id: string; paymentNumber: string; supplierId: string; supplierName: string;
+  amount: number; method: string; date: string; notes: string | null; createdAt: string | null;
+};
+export type SupplierCreditSummary = {
+  supplierId: string; supplierName: string;
+  totalCreditExpenses: number; totalPurchaseDebt: number;
+  totalGross: number; totalPayments: number; balance: number;
+  creditExpenses: Expense[]; unpaidPurchases: Purchase[]; payments: SupplierCreditPayment[];
+};
 export async function adminListSuppliers() {
   return handle<Supplier[]>(await apiFetch("/api/admin/suppliers", j()));
 }
@@ -550,12 +560,22 @@ export async function adminUpdateSupplier(id: string, body: Partial<Supplier>) {
 export async function adminDeleteSupplier(id: string) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/suppliers/${id}`, { method: "DELETE", credentials: "include" }));
 }
+export async function adminGetSupplierCreditSummary(id: string) {
+  return handle<SupplierCreditSummary>(await apiFetch(`/api/admin/suppliers/${id}/credit-summary`, j()));
+}
+export async function adminCreateCreditPayment(supplierId: string, body: { amount: number; method: string; date: string; notes?: string }) {
+  return handle<SupplierCreditPayment>(await apiFetch(`/api/admin/suppliers/${supplierId}/credit-payments`, json(body)));
+}
+export async function adminDeleteCreditPayment(supplierId: string, paymentId: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/suppliers/${supplierId}/credit-payments/${paymentId}`, { method: "DELETE", credentials: "include" }));
+}
 
 // ── Expenses ──────────────────────────────────────────────────────────────
 export type Expense = {
   id: string; expenseNumber: string; category: string; amount: number;
   description: string | null; date: string; supplierId: string | null;
-  supplierName: string | null; paymentMethod: string; notes: string | null; createdAt: string | null;
+  supplierName: string | null; paymentMethod: string; isCredit: boolean;
+  notes: string | null; createdAt: string | null;
 };
 export async function adminListExpenses(params: { from?: string; to?: string; category?: string } = {}) {
   const q = new URLSearchParams();
@@ -578,7 +598,7 @@ export async function adminDeleteExpense(id: string) {
 export type PurchaseItem = { productName: string; sku: string; qty: number; unitCost: number; lineTotal: number };
 export type Purchase = {
   id: string; purchaseNumber: string; supplierId: string | null; supplierName: string | null;
-  items: PurchaseItem[]; totalAmount: number;
+  items: PurchaseItem[]; totalAmount: number; amountPaid: number;
   paymentStatus: "unpaid" | "partial" | "paid";
   notes: string | null; date: string; createdAt: string | null;
 };
@@ -591,10 +611,10 @@ export async function adminListPurchases(supplierId?: string) {
   const url = supplierId ? `/api/admin/purchases?supplierId=${supplierId}` : "/api/admin/purchases";
   return handle<Purchase[]>(await apiFetch(url, j()));
 }
-export async function adminCreatePurchase(body: Omit<Purchase, "id" | "purchaseNumber" | "totalAmount" | "createdAt"> & { items: Array<Omit<PurchaseItem, "lineTotal">> }) {
+export async function adminCreatePurchase(body: Omit<Purchase, "id" | "purchaseNumber" | "totalAmount" | "amountPaid" | "createdAt"> & { items: Array<Omit<PurchaseItem, "lineTotal">>; amountPaid?: number }) {
   return handle<Purchase>(await apiFetch("/api/admin/purchases", json(body)));
 }
-export async function adminUpdatePurchase(id: string, body: { paymentStatus?: Purchase["paymentStatus"]; notes?: string }) {
+export async function adminUpdatePurchase(id: string, body: { paymentStatus?: Purchase["paymentStatus"]; amountPaid?: number; notes?: string }) {
   return handle<Purchase>(await apiFetch(`/api/admin/purchases/${id}`, json(body, "PATCH")));
 }
 export async function adminDeletePurchase(id: string) {
