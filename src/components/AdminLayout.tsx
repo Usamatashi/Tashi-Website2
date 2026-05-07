@@ -126,13 +126,18 @@ export default function AdminLayout() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-ink-200 bg-white/95 px-4 backdrop-blur">
-          <button
-            className="rounded-md p-2 text-ink-600 hover:bg-ink-100 lg:hidden"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="rounded-md p-2 text-ink-600 hover:bg-ink-100 lg:hidden"
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <Link to="/admin" className="flex items-center">
+              <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-9 w-auto" />
+            </Link>
+          </div>
           <div className="flex flex-1 items-center justify-end gap-3">
             <div className="hidden text-right sm:block">
               <div className="text-sm font-semibold text-ink-900">{admin.name || "Admin"}</div>
@@ -162,25 +167,24 @@ function SidebarBody({
 }: { admin: AdminUser; visible: (i: NavItemDef) => boolean; onClose?: () => void }) {
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-ink-200 px-4 py-3">
-        <Link to="/admin" className="flex items-center" onClick={onClose}>
-          <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-12 w-auto" />
-        </Link>
-        {onClose && (
+      {onClose && (
+        <div className="flex items-center justify-end border-b border-ink-200 px-4 py-3">
           <button onClick={onClose} className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100">
             <X className="h-4 w-4" />
           </button>
-        )}
-      </div>
+        </div>
+      )}
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         {NAV.map((section) => {
           const items = section.items.filter(visible);
           if (!items.length) return null;
           return (
             <div key={section.title} className="mb-4">
+              {section.title !== "Overview" && (
               <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-ink-400">
                 {section.title}
               </div>
+              )}
               {items.map((item) => (
                 <NavLink
                   key={item.to}
