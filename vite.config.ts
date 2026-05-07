@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
+      "recharts": path.resolve(import.meta.dirname, "node_modules/recharts/es6/index.js"),
     },
   },
   root: path.resolve(import.meta.dirname),
@@ -19,9 +20,6 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
-    commonjsOptions: {
-      include: [/recharts/, /node_modules/],
-    },
   },
   server: {
     port,
