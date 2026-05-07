@@ -127,19 +127,20 @@ export default function AdminExpenses() {
 
       {/* Summary */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-red-400"><TrendingDown className="h-3.5 w-3.5" />Period Total</div>
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 flex flex-col items-center justify-center text-center">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-red-400"><TrendingDown className="h-3.5 w-3.5" />Period Total</div>
           <div className="mt-2 font-display text-3xl font-bold text-red-600">{formatPrice(totalFiltered)}</div>
+          <div className="text-xs text-red-400 mt-1">{filtered.length} transaction{filtered.length !== 1 ? "s" : ""}</div>
         </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-500"><CreditCard className="h-3.5 w-3.5" />On Credit</div>
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 flex flex-col items-center justify-center text-center">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-500"><CreditCard className="h-3.5 w-3.5" />On Credit</div>
           <div className="mt-2 font-display text-3xl font-bold text-amber-700">{formatPrice(creditTotal)}</div>
-          <div className="text-xs text-amber-500">{filtered.filter((e) => e.isCredit).length} record{filtered.filter((e) => e.isCredit).length !== 1 ? "s" : ""}</div>
+          <div className="text-xs text-amber-500 mt-1">{filtered.filter((e) => e.isCredit).length} record{filtered.filter((e) => e.isCredit).length !== 1 ? "s" : ""}</div>
         </div>
-        <div className="rounded-2xl border border-ink-100 bg-white p-5">
+        <div className="rounded-2xl border border-ink-100 bg-white p-5 flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Top Category</div>
           <div className="mt-2 font-display text-xl font-bold text-ink-900">{topCategories[0]?.[0] ?? "—"}</div>
-          {topCategories[0] && <div className="text-sm text-ink-500">{formatPrice(topCategories[0][1])}</div>}
+          {topCategories[0] && <div className="text-sm text-ink-500 mt-1">{formatPrice(topCategories[0][1])}</div>}
         </div>
       </div>
 
