@@ -16,23 +16,19 @@ function parseDate(str) {
 // ── GET /options — all customers & products for autocomplete ───────────────
 router.get("/options", async (req, res) => {
   try {
-    const [custSnap, prodSnap, ordersSnap] = await Promise.all([
+    const [custSnap, prodSnap, usersSnap] = await Promise.all([
       db.collection("pos_customers").get(),
       db.collection("products").get(),
-      db.collection("orders").get(),
+      db.collection("users").where("role", "in", ["mechanic", "retailer"]).get(),
     ]);
 
     const customers = new Set();
+
+    // POS consumers (saved in pos_customers)
     custSnap.forEach((d) => { if (d.data().name) customers.add(d.data().name); });
 
-    // Wholesale retailer names
-    const retailerIds = [...new Set(
-      ordersSnap.docs.filter((d) => d.data().source !== "website").map((d) => d.data().retailerId).filter(Boolean)
-    )];
-    if (retailerIds.length) {
-      const userDocs = await db.getAll(...retailerIds.map((id) => db.collection("users").doc(String(id))));
-      userDocs.forEach((d) => { if (d.exists && d.data().name) customers.add(d.data().name); });
-    }
+    // App users: mechanics & retailers
+    usersSnap.forEach((d) => { if (d.data().name) customers.add(d.data().name); });
 
     const products = new Set();
     prodSnap.forEach((d) => {

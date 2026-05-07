@@ -53,10 +53,17 @@ router.post("/", async (req, res) => {
     };
     await db.collection("pos_sales").doc(String(id)).set(sale);
     if (customerId) {
-      const custRef = db.collection("pos_customers").doc(String(customerId));
-      const custDoc = await custRef.get();
-      if (custDoc.exists) {
-        await custRef.update({ totalPurchases: (custDoc.data().totalPurchases || 0) + sale.total, lastPurchaseAt: new Date() });
+      // Try pos_customers first (consumers); fall back to users (mechanics/retailers)
+      const posRef = db.collection("pos_customers").doc(String(customerId));
+      const posDoc = await posRef.get();
+      if (posDoc.exists) {
+        await posRef.update({ totalPurchases: (posDoc.data().totalPurchases || 0) + sale.total, lastPurchaseAt: new Date() });
+      } else {
+        const userRef = db.collection("users").doc(String(customerId));
+        const userDoc = await userRef.get();
+        if (userDoc.exists) {
+          await userRef.update({ totalPurchases: (userDoc.data().totalPurchases || 0) + sale.total, lastPurchaseAt: new Date() });
+        }
       }
     }
     for (const item of items) {
