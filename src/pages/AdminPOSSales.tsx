@@ -46,6 +46,76 @@ const PAYMENT_METHODS_LIST = [
   { key: "jazzcash", label: "JazzCash" },
 ];
 
+// ── Autocomplete input ────────────────────────────────────────────────────
+
+function AutocompleteInput({
+  value, onChange, onSelect, placeholder, icon: Icon, suggestions,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSelect: (v: string) => void;
+  placeholder: string;
+  icon: React.ElementType;
+  suggestions: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const filtered = value.trim()
+    ? suggestions.filter((s) => s.toLowerCase().includes(value.toLowerCase()))
+    : suggestions;
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative flex-1 min-w-[160px]">
+      <Icon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400 pointer-events-none z-10" />
+      <input
+        placeholder={placeholder}
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => { onChange(e.target.value); setOpen(true); }}
+        className="w-full rounded-lg border border-ink-200 py-1.5 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300"
+      />
+      {value && (
+        <button
+          onMouseDown={(e) => { e.preventDefault(); onSelect(""); setOpen(false); }}
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 top-full z-50 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-ink-200 bg-white py-1 shadow-xl">
+          {filtered.map((s) => (
+            <button
+              key={s}
+              onMouseDown={(e) => { e.preventDefault(); onSelect(s); setOpen(false); }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-ink-700 hover:bg-brand-50 hover:text-brand-700 transition-colors"
+            >
+              <Icon className="h-3 w-3 flex-shrink-0 text-ink-400" />
+              <span className="truncate">{s}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && value.trim() && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-full rounded-xl border border-ink-200 bg-white px-3 py-3 text-center text-xs text-ink-400 shadow-xl">
+          No matches found
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Custom Tooltip for chart ──────────────────────────────────────────────
 
 function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color: string }[]; label?: string }) {
@@ -81,6 +151,7 @@ export default function AdminPOSSales() {
   const [returnTx, setReturnTx] = useState<SalesTx | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const allTransactionsRef = useRef<SalesTx[]>([]);
 
   const load = useCallback(async (params: { from: string; to: string; channel: string; customer: string; product: string }, initial = false) => {
     if (initial) setLoading(true); else setRefetching(true);
@@ -115,6 +186,14 @@ export default function AdminPOSSales() {
   const transactions = data?.transactions ?? [];
   const chartData = data?.chartData ?? [];
   const topProducts = data?.topProducts ?? [];
+
+  if (transactions.length > 0) allTransactionsRef.current = transactions;
+  const allTx = allTransactionsRef.current;
+
+  const customerSuggestions = [...new Set(allTx.map((t) => t.customer).filter(Boolean))].sort();
+  const productSuggestions = [...new Set(
+    allTx.flatMap((t) => t.items.map((i) => i.productName)).filter(Boolean)
+  )].sort();
 
   const pieData = [
     { name: "POS", value: stats?.posRevenue ?? 0 },
@@ -151,27 +230,23 @@ export default function AdminPOSSales() {
               className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
           </div>
 
-          <div className="relative flex-1 min-w-[160px]">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
-            <input
-              placeholder="Filter by customer…"
-              value={customerQ}
-              onChange={(e) => handleCustomerQ(e.target.value)}
-              className="w-full rounded-lg border border-ink-200 py-1.5 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300"
-            />
-            {customerQ && <button onClick={() => handleCustomerQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"><X className="h-3.5 w-3.5" /></button>}
-          </div>
+          <AutocompleteInput
+            value={customerQ}
+            onChange={handleCustomerQ}
+            onSelect={(v) => { setCustomerQ(v); triggerFetch({ customer: v }); }}
+            placeholder="Filter by customer…"
+            icon={Search}
+            suggestions={customerSuggestions}
+          />
 
-          <div className="relative flex-1 min-w-[160px]">
-            <Package className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
-            <input
-              placeholder="Filter by product…"
-              value={productQ}
-              onChange={(e) => handleProductQ(e.target.value)}
-              className="w-full rounded-lg border border-ink-200 py-1.5 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300"
-            />
-            {productQ && <button onClick={() => handleProductQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"><X className="h-3.5 w-3.5" /></button>}
-          </div>
+          <AutocompleteInput
+            value={productQ}
+            onChange={handleProductQ}
+            onSelect={(v) => { setProductQ(v); triggerFetch({ product: v }); }}
+            placeholder="Filter by product…"
+            icon={Package}
+            suggestions={productSuggestions}
+          />
 
           {refetching && <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />}
         </div>
