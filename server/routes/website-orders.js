@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, admin } from "../lib/firebase.js";
+import { db, admin, chunkArray } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
 import { sanitizeStr, toNumber } from "../lib/helpers.js";
 
@@ -192,6 +192,72 @@ router.get("/admin/website-stats", requireAdmin, async (_req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to compute stats" });
+  }
+});
+
+router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
+  try {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // POS revenue — sum `total` for sales this month
+    const posSnap = await db.collection("pos_sales").get();
+    let posRevenue = 0;
+    posSnap.forEach((d) => {
+      const data = d.data();
+      const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
+      if (ct >= monthStart) posRevenue += toNumber(data.total, 0);
+    });
+
+    // Wholesale revenue — orders this month (non-website, non-cancelled)
+    const ordersSnap = await db.collection("orders").get();
+    const wholesaleMonth = ordersSnap.docs
+      .filter((d) => {
+        const data = d.data();
+        if (data.source === "website") return false;
+        const s = String(data.status || "").toLowerCase();
+        if (s === "cancelled") return false;
+        const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
+        return ct >= monthStart;
+      });
+
+    let wholesaleRevenue = 0;
+    if (wholesaleMonth.length > 0) {
+      const orderIds = wholesaleMonth.map((d) => d.data().id).filter((x) => typeof x === "number");
+      const billDiscounts = {};
+      wholesaleMonth.forEach((d) => {
+        const data = d.data();
+        if (typeof data.id === "number") billDiscounts[data.id] = toNumber(data.billDiscountPercent, 0);
+      });
+
+      const subtotalByOrder = {};
+      for (const chunk of chunkArray(orderIds, 30)) {
+        const itemsSnap = await db.collection("orderItems").where("orderId", "in", chunk).get();
+        itemsSnap.forEach((d) => {
+          const item = d.data();
+          const oid = item.orderId;
+          if (!subtotalByOrder[oid]) subtotalByOrder[oid] = 0;
+          const qty = toNumber(item.quantity, 0);
+          const unitPrice = toNumber(item.unitPrice, 0);
+          const discPct = toNumber(item.discountPercent, 0);
+          subtotalByOrder[oid] += Math.round(qty * unitPrice * (1 - discPct / 100));
+        });
+      }
+
+      for (const [oid, subtotal] of Object.entries(subtotalByOrder)) {
+        const billDisc = toNumber(billDiscounts[Number(oid)], 0);
+        wholesaleRevenue += subtotal - Math.round(subtotal * (billDisc / 100));
+      }
+    }
+
+    res.json({
+      posRevenue: Math.round(posRevenue),
+      wholesaleRevenue: Math.round(wholesaleRevenue),
+      totalMonthRevenue: Math.round(posRevenue + wholesaleRevenue),
+    });
+  } catch (err) {
+    console.error("month-revenue:", err);
+    res.status(500).json({ error: "Failed to compute month revenue" });
   }
 });
 

@@ -5,7 +5,7 @@ import {
   CircleDollarSign, ArrowRight, TrendingUp, Zap, BarChart2,
 } from "lucide-react";
 import {
-  adminGetStats, adminListClaims, adminPendingPaymentCount,
+  adminGetStats, adminGetMonthRevenue, adminListClaims, adminPendingPaymentCount,
   adminRetailerBalances, adminListQRCodes, adminListAds,
   adminListTicker, adminListUsers,
   formatPrice, type AdminStats,
@@ -17,6 +17,7 @@ type Counts = {
   pendingClaims: number; pendingPayments: number;
   retailerOutstanding: number; qrTotal: number; adsTotal: number;
   tickerTotal: number; usersTotal: number;
+  monthRevenue: { posRevenue: number; wholesaleRevenue: number; totalMonthRevenue: number } | null;
 };
 
 const STAT_CARDS = (c: Counts) => [
@@ -71,8 +72,9 @@ export default function AdminDashboard() {
     let cancelled = false;
     (async () => {
       try {
-        const [stats, claims, pendingPay, balances, qrs, ads, ticker, users] = await Promise.all([
+        const [stats, monthRev, claims, pendingPay, balances, qrs, ads, ticker, users] = await Promise.all([
           adminGetStats().catch((): AdminStats | null => null),
+          adminGetMonthRevenue().catch(() => null),
           adminListClaims().catch((): Awaited<ReturnType<typeof adminListClaims>> => []),
           adminPendingPaymentCount().catch(() => ({ count: 0 })),
           adminRetailerBalances().catch((): Awaited<ReturnType<typeof adminRetailerBalances>> => []),
@@ -84,6 +86,7 @@ export default function AdminDashboard() {
         if (cancelled) return;
         setCounts({
           websiteOrders: stats,
+          monthRevenue: monthRev,
           pendingClaims: claims.filter((c) => c.status !== "received").length,
           pendingPayments: pendingPay.count,
           retailerOutstanding: balances.reduce((s, b) => s + b.outstanding, 0),
@@ -111,7 +114,9 @@ export default function AdminDashboard() {
     );
   }
 
-  const revenue = counts.websiteOrders?.revenue ?? 0;
+  const revenue = counts.monthRevenue?.totalMonthRevenue ?? counts.websiteOrders?.revenue ?? 0;
+  const posRevenue = counts.monthRevenue?.posRevenue ?? 0;
+  const wholesaleRevenue = counts.monthRevenue?.wholesaleRevenue ?? 0;
   const cards = STAT_CARDS(counts);
 
   return (
@@ -172,30 +177,29 @@ export default function AdminDashboard() {
               <TrendingUp className="h-5 w-5 text-emerald-600" />
             </div>
             <div>
-              <h2 className="font-display text-base font-bold text-ink-900">Website Order Revenue</h2>
-              <p className="text-xs text-ink-500">Breakdown by order status</p>
+              <h2 className="font-display text-base font-bold text-ink-900">This Month's Revenue</h2>
+              <p className="text-xs text-ink-500">POS sales + wholesale orders combined</p>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {[
-              { label: "Confirmed", value: counts.websiteOrders?.confirmed ?? 0, color: "bg-blue-500", light: "bg-blue-50 text-blue-700" },
-              { label: "Shipped", value: counts.websiteOrders?.shipped ?? 0, color: "bg-amber-500", light: "bg-amber-50 text-amber-700" },
-              { label: "Delivered", value: counts.websiteOrders?.delivered ?? 0, color: "bg-emerald-500", light: "bg-emerald-50 text-emerald-700" },
+              { label: "POS Sales", value: posRevenue, color: "bg-violet-500" },
+              { label: "Wholesale Orders", value: wholesaleRevenue, color: "bg-blue-500" },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-ink-100 p-4">
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${s.color}`} />
                   <span className="text-xs font-medium text-ink-500">{s.label}</span>
                 </div>
-                <div className="mt-2 font-display text-2xl font-bold text-ink-900">{s.value}</div>
+                <div className="mt-2 font-display text-2xl font-bold text-ink-900">{formatPrice(s.value)}</div>
               </div>
             ))}
           </div>
 
           <div className="mt-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-widest text-emerald-100">Total Revenue</div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-emerald-100">Total This Month</div>
               <div className="mt-0.5 font-display text-2xl font-bold text-white">{formatPrice(revenue)}</div>
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">

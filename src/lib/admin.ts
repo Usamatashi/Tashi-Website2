@@ -84,6 +84,11 @@ export async function adminUpdateOrderStatus(id: string, status: string) {
 export async function adminGetStats() {
   return handle<AdminStats>(await apiFetch("/api/admin/stats", j()));
 }
+export async function adminGetMonthRevenue() {
+  return handle<{ posRevenue: number; wholesaleRevenue: number; totalMonthRevenue: number }>(
+    await apiFetch("/api/admin/month-revenue", j())
+  );
+}
 
 // ── Wholesale (mobile-app) orders ────────────────────────────────────────
 export type WholesaleOrderItem = {

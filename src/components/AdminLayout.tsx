@@ -140,10 +140,8 @@ export default function AdminLayout() {
           </div>
           <div className="flex flex-1 items-center justify-end gap-3">
             <div className="hidden text-right sm:block">
-              <div className="text-sm font-semibold text-ink-900">{admin.name || "Admin"}</div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-brand-500">
-                {admin.role.replace("_", " ")}
-              </div>
+              <div className="text-sm font-semibold text-brand-500 uppercase tracking-wide">{admin.role.replace("_", " ")}</div>
+              {admin.phone && <div className="text-xs text-ink-500">{admin.phone}</div>}
             </div>
           </div>
         </header>

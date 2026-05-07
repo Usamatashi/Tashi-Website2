@@ -67,6 +67,7 @@ app.use("/api/admin", adminAuthRouter);
 // Admin: kept old paths for AdminOrders.tsx compat
 app.use("/api/admin/orders", (req, _res, next) => { req.url = `/admin/website-orders${req.url}`; next(); }, websiteOrdersRouter);
 app.get("/api/admin/stats", (req, res, next) => { req.url = "/admin/website-stats"; next(); }, websiteOrdersRouter);
+app.get("/api/admin/month-revenue", (req, res, next) => { req.url = "/admin/month-revenue"; next(); }, websiteOrdersRouter);
 
 // Admin resource routers
 app.use("/api/admin/users", usersRouter);
