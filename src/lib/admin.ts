@@ -409,6 +409,36 @@ export async function adminGetPOSSaleStats() {
   return handle<POSSaleStats>(await apiFetch("/api/admin/pos/sales/stats", j()));
 }
 
+// ── Sales Analytics (combined POS + Wholesale) ────────────────────────────
+export type SalesTx = {
+  id: string; type: "pos" | "wholesale"; ref: string;
+  customer: string; customerId: string | null;
+  amount: number; createdAt: string; paymentMethod: string;
+  status: string | null; itemCount: number;
+  items: { productName: string; qty: number; unitPrice: number; discountPct: number; lineTotal: number; sku?: string; productId?: number }[];
+  raw?: unknown;
+};
+export type SalesAnalyticsStats = {
+  totalRevenue: number; posRevenue: number; wsRevenue: number;
+  todayRevenue: number; todayPOSRevenue: number; todayWSRevenue: number;
+  totalCount: number;
+};
+export type SalesChartPoint = { date: string; pos: number; wholesale: number; total: number };
+export type TopProduct = { name: string; qty: number; revenue: number };
+export type SalesAnalyticsResult = {
+  stats: SalesAnalyticsStats; chartData: SalesChartPoint[];
+  topProducts: TopProduct[]; transactions: SalesTx[];
+};
+export async function adminGetSalesAnalytics(params: { from?: string; to?: string; channel?: string; customer?: string; product?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  if (params.channel) q.set("channel", params.channel);
+  if (params.customer) q.set("customer", params.customer);
+  if (params.product) q.set("product", params.product);
+  return handle<SalesAnalyticsResult>(await apiFetch(`/api/admin/sales-analytics?${q}`, j()));
+}
+
 // ── POS Returns ───────────────────────────────────────────────────────────
 export type POSReturnItem = {
   productId: number; productName: string; sku: string;

@@ -1,169 +1,466 @@
-import { useEffect, useState } from "react";
-import { ShoppingBag, TrendingUp, Calendar, CreditCard, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
-import { adminListPOSSales, adminGetPOSSaleStats, adminCreatePOSReturn, formatPrice, formatDate, type POSSale, type POSSaleStats, type POSReturnItem } from "@/lib/admin";
+import { useEffect, useState, useCallback, useRef } from "react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from "recharts";
+import {
+  TrendingUp, Calendar, Search, X, ChevronDown, ChevronRight,
+  ShoppingBag, Package, RotateCcw, Filter, Layers,
+} from "lucide-react";
+import {
+  adminGetSalesAnalytics, adminCreatePOSReturn, formatPrice, formatDate,
+  type SalesAnalyticsResult, type SalesTx, type POSReturnItem, type POSSale,
+} from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
 
+// ── helpers ──────────────────────────────────────────────────────────────
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function monthStartISO() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), 1).toISOString().slice(0, 10);
+}
+function shortDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-PK", { month: "short", day: "numeric" });
+}
+function fmtPrice(v: number) { return formatPrice(v); }
+
+const CHANNELS = [
+  { key: "all", label: "All Sales" },
+  { key: "pos", label: "POS" },
+  { key: "wholesale", label: "Wholesale" },
+];
 const PAYMENT_COLORS: Record<string, string> = {
   cash: "bg-emerald-100 text-emerald-700",
   card: "bg-blue-100 text-blue-700",
   easypaisa: "bg-violet-100 text-violet-700",
   jazzcash: "bg-red-100 text-red-700",
+  wholesale: "bg-amber-100 text-amber-700",
 };
-
-export default function AdminPOSSales() {
-  const [sales, setSales]       = useState<POSSale[]>([]);
-  const [stats, setStats]       = useState<POSSaleStats | null>(null);
-  const [loading, setLoading]   = useState(true);
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [returnSale, setReturnSale] = useState<POSSale | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const [s, st] = await Promise.all([adminListPOSSales(100), adminGetPOSSaleStats()]);
-        setSales(s);
-        setStats(st);
-      } finally { setLoading(false); }
-    })();
-  }, []);
-
-  if (loading) return <PageShell><Loading /></PageShell>;
-
-  return (
-    <PageShell>
-      <PageHeader title="POS Sales History" subtitle="All point-of-sale transactions" />
-
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total Revenue", value: formatPrice(stats?.totalRevenue || 0), icon: TrendingUp, color: "text-brand-600" },
-          { label: "Today Revenue", value: formatPrice(stats?.todayRevenue || 0), icon: Calendar, color: "text-emerald-600" },
-          { label: "Today Sales", value: String(stats?.todayCount || 0), icon: ShoppingBag, color: "text-blue-600" },
-          { label: "Total Sales", value: String(stats?.totalSales || 0), icon: CreditCard, color: "text-violet-600" },
-        ].map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">{card.label}</div>
-                <Icon className={`h-5 w-5 ${card.color}`} />
-              </div>
-              <div className="mt-2 font-display text-2xl font-bold text-ink-900">{card.value}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <Card>
-        {sales.length === 0 ? (
-          <Empty icon={ShoppingBag} title="No sales yet" hint="Sales from the POS terminal will appear here." />
-        ) : (
-          <div className="divide-y divide-ink-100">
-            {sales.map((sale) => (
-              <div key={sale.id}>
-                <button
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm hover:bg-ink-50 transition-colors"
-                  onClick={() => setExpanded(expanded === sale.id ? null : sale.id)}
-                >
-                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
-                    <ShoppingBag className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-semibold text-brand-600">{sale.saleNumber}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${PAYMENT_COLORS[sale.paymentMethod] || "bg-ink-100 text-ink-600"}`}>
-                        {sale.paymentMethod}
-                      </span>
-                    </div>
-                    <div className="text-ink-500 text-xs">{sale.customerName} · {formatDate(sale.createdAt)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-ink-900">{formatPrice(sale.total)}</div>
-                    <div className="text-[11px] text-ink-400">{sale.items.length} item{sale.items.length !== 1 ? "s" : ""}</div>
-                  </div>
-                  {expanded === sale.id ? <ChevronDown className="h-4 w-4 text-ink-400" /> : <ChevronRight className="h-4 w-4 text-ink-400" />}
-                </button>
-                {expanded === sale.id && (
-                  <div className="border-t border-ink-100 bg-ink-50 px-4 py-3">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-ink-400">
-                          <th className="pb-2">Product</th>
-                          <th className="pb-2 text-center">Qty</th>
-                          <th className="pb-2 text-right">Unit</th>
-                          <th className="pb-2 text-right">Disc%</th>
-                          <th className="pb-2 text-right">Total</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-ink-200">
-                        {sale.items.map((item, i) => (
-                          <tr key={i}>
-                            <td className="py-1.5 text-ink-700">{item.productName}</td>
-                            <td className="py-1.5 text-center text-ink-500">{item.qty}</td>
-                            <td className="py-1.5 text-right text-ink-500">{formatPrice(item.unitPrice)}</td>
-                            <td className="py-1.5 text-right text-ink-500">{item.discountPct || 0}%</td>
-                            <td className="py-1.5 text-right font-semibold text-ink-800">{formatPrice(item.lineTotal)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div className="mt-3 space-y-1 border-t border-ink-200 pt-2 text-xs">
-                      <div className="flex justify-between text-ink-500"><span>Subtotal</span><span>{formatPrice(sale.subtotal)}</span></div>
-                      {sale.discountAmount > 0 && <div className="flex justify-between text-red-600"><span>Discount ({sale.discountPct}%)</span><span>-{formatPrice(sale.discountAmount)}</span></div>}
-                      <div className="flex justify-between font-bold text-ink-900"><span>Total</span><span>{formatPrice(sale.total)}</span></div>
-                      {sale.paymentMethod === "cash" && sale.cashReceived != null && (
-                        <>
-                          <div className="flex justify-between text-ink-500"><span>Cash</span><span>{formatPrice(sale.cashReceived)}</span></div>
-                          <div className="flex justify-between text-emerald-700"><span>Change</span><span>{formatPrice(sale.changeGiven || 0)}</span></div>
-                        </>
-                      )}
-                      {sale.notes && <div className="mt-1 text-ink-400 italic">Note: {sale.notes}</div>}
-                    </div>
-                    <div className="mt-3 flex justify-end">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setReturnSale(sale); }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
-                      >
-                        <RotateCcw className="h-3.5 w-3.5" />
-                        Process Return
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-      {returnSale && (
-        <ReturnModal sale={returnSale} onClose={() => setReturnSale(null)} />
-      )}
-    </PageShell>
-  );
-}
-
-const PAYMENT_METHODS = [
+const PIE_COLORS = ["#f97316", "#3b82f6"];
+const PAYMENT_METHODS_LIST = [
   { key: "cash", label: "Cash" },
   { key: "card", label: "Card" },
   { key: "easypaisa", label: "Easypaisa" },
   { key: "jazzcash", label: "JazzCash" },
 ];
 
-function ReturnModal({ sale, onClose }: { sale: POSSale; onClose: () => void }) {
+// ── Custom Tooltip for chart ──────────────────────────────────────────────
+
+function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number; name: string; color: string }[]; label?: string }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white p-3 shadow-lg text-xs">
+      <div className="mb-1.5 font-semibold text-ink-700">{label ? shortDate(label) : ""}</div>
+      {payload.map((p, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+          <span className="text-ink-500 capitalize">{p.name}:</span>
+          <span className="font-bold text-ink-900">{fmtPrice(p.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────
+
+export default function AdminPOSSales() {
+  const [data, setData] = useState<SalesAnalyticsResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refetching, setRefetching] = useState(false);
+
+  const [from, setFrom] = useState(monthStartISO());
+  const [to, setTo] = useState(todayISO());
+  const [channel, setChannel] = useState("all");
+  const [customerQ, setCustomerQ] = useState("");
+  const [productQ, setProductQ] = useState("");
+
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [returnTx, setReturnTx] = useState<SalesTx | null>(null);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async (params: { from: string; to: string; channel: string; customer: string; product: string }, initial = false) => {
+    if (initial) setLoading(true); else setRefetching(true);
+    try {
+      const result = await adminGetSalesAnalytics(params);
+      setData(result);
+    } finally {
+      setLoading(false);
+      setRefetching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load({ from, to, channel, customer: customerQ, product: productQ }, true);
+  }, []);
+
+  const triggerFetch = useCallback((overrides: Partial<{ from: string; to: string; channel: string; customer: string; product: string }> = {}) => {
+    const params = { from, to, channel, customer: customerQ, product: productQ, ...overrides };
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => load(params), 400);
+  }, [from, to, channel, customerQ, productQ, load]);
+
+  function handleFrom(v: string) { setFrom(v); triggerFetch({ from: v }); }
+  function handleTo(v: string) { setTo(v); triggerFetch({ to: v }); }
+  function handleChannel(v: string) { setChannel(v); triggerFetch({ channel: v }); }
+  function handleCustomerQ(v: string) { setCustomerQ(v); triggerFetch({ customer: v }); }
+  function handleProductQ(v: string) { setProductQ(v); triggerFetch({ product: v }); }
+
+  if (loading) return <PageShell><Loading /></PageShell>;
+
+  const stats = data?.stats;
+  const transactions = data?.transactions ?? [];
+  const chartData = data?.chartData ?? [];
+  const topProducts = data?.topProducts ?? [];
+
+  const pieData = [
+    { name: "POS", value: stats?.posRevenue ?? 0 },
+    { name: "Wholesale", value: stats?.wsRevenue ?? 0 },
+  ];
+
+  return (
+    <PageShell>
+      <PageHeader title="Sales Dashboard" subtitle="Combined POS & Wholesale analytics" />
+
+      {/* ── Filters ─────────────────────────────────────────────────── */}
+      <div className="mb-6 rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3">
+          <Filter className="h-4 w-4 text-ink-400 flex-shrink-0" />
+
+          <div className="flex items-center gap-1 rounded-xl bg-ink-100 p-1">
+            {CHANNELS.map((c) => (
+              <button
+                key={c.key}
+                onClick={() => handleChannel(c.key)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${channel === c.key ? "bg-white text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"}`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1.5 text-sm">
+            <span className="text-xs font-medium text-ink-500">From</span>
+            <input type="date" value={from} onChange={(e) => handleFrom(e.target.value)} max={to}
+              className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+            <span className="text-xs font-medium text-ink-500">To</span>
+            <input type="date" value={to} onChange={(e) => handleTo(e.target.value)} min={from} max={todayISO()}
+              className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+          </div>
+
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
+            <input
+              placeholder="Filter by customer…"
+              value={customerQ}
+              onChange={(e) => handleCustomerQ(e.target.value)}
+              className="w-full rounded-lg border border-ink-200 py-1.5 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+            {customerQ && <button onClick={() => handleCustomerQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"><X className="h-3.5 w-3.5" /></button>}
+          </div>
+
+          <div className="relative flex-1 min-w-[160px]">
+            <Package className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-400" />
+            <input
+              placeholder="Filter by product…"
+              value={productQ}
+              onChange={(e) => handleProductQ(e.target.value)}
+              className="w-full rounded-lg border border-ink-200 py-1.5 pl-8 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+            {productQ && <button onClick={() => handleProductQ("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"><X className="h-3.5 w-3.5" /></button>}
+          </div>
+
+          {refetching && <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand-300 border-t-brand-600" />}
+        </div>
+      </div>
+
+      {/* ── Stats cards ─────────────────────────────────────────────── */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 p-5 text-white shadow-lg">
+          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10" />
+          <div className="absolute -right-2 -bottom-6 h-16 w-16 rounded-full bg-white/10" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white/70">Total Revenue (Period)</span>
+              <TrendingUp className="h-5 w-5 text-white/60" />
+            </div>
+            <div className="mt-2 font-display text-3xl font-bold">{fmtPrice(stats?.totalRevenue ?? 0)}</div>
+            <div className="mt-2 flex gap-3 text-xs text-white/80">
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                POS {fmtPrice(stats?.posRevenue ?? 0)}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
+                Wholesale {fmtPrice(stats?.wsRevenue ?? 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-5 text-white shadow-lg">
+          <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10" />
+          <div className="absolute -right-2 -bottom-6 h-16 w-16 rounded-full bg-white/10" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-white/70">Today Revenue</span>
+              <Calendar className="h-5 w-5 text-white/60" />
+            </div>
+            <div className="mt-2 font-display text-3xl font-bold">{fmtPrice(stats?.todayRevenue ?? 0)}</div>
+            <div className="mt-2 flex gap-3 text-xs text-white/80">
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                POS {fmtPrice(stats?.todayPOSRevenue ?? 0)}
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/50" />
+                Wholesale {fmtPrice(stats?.todayWSRevenue ?? 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Charts ──────────────────────────────────────────────────── */}
+      {chartData.length > 0 && (
+        <div className="mb-6 grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2 rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-ink-900">Revenue Trend</div>
+                <div className="text-xs text-ink-400">Daily breakdown by channel</div>
+              </div>
+              <div className="flex items-center gap-3 text-xs">
+                <span className="flex items-center gap-1.5 text-ink-500"><span className="h-2.5 w-2.5 rounded-sm bg-brand-500" />POS</span>
+                <span className="flex items-center gap-1.5 text-ink-500"><span className="h-2.5 w-2.5 rounded-sm bg-blue-500" />Wholesale</span>
+              </div>
+            </div>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gPOS" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f97316" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#f97316" stopOpacity={0.02} />
+                  </linearGradient>
+                  <linearGradient id="gWS" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(v) => `${Math.round(v / 1000)}k`} tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} width={40} />
+                <ReTooltip content={<ChartTooltip />} />
+                <Area type="monotone" dataKey="pos" name="POS" stroke="#f97316" strokeWidth={2} fill="url(#gPOS)" dot={false} activeDot={{ r: 4, fill: "#f97316" }} />
+                <Area type="monotone" dataKey="wholesale" name="Wholesale" stroke="#3b82f6" strokeWidth={2} fill="url(#gWS)" dot={false} activeDot={{ r: 4, fill: "#3b82f6" }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+            <div className="mb-2 font-semibold text-ink-900">Channel Split</div>
+            <div className="text-xs text-ink-400 mb-3">Revenue by source</div>
+            <ResponsiveContainer width="100%" height={140}>
+              <PieChart>
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                  {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                </Pie>
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                <ReTooltip formatter={(v: number) => fmtPrice(v)} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-3 space-y-2">
+              {pieData.map((p, i) => {
+                const total = pieData.reduce((s, x) => s + x.value, 0);
+                const pct = total > 0 ? Math.round((p.value / total) * 100) : 0;
+                return (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 text-ink-600">
+                      <span className="h-2 w-2 rounded-full" style={{ background: PIE_COLORS[i] }} />
+                      {p.name}
+                    </span>
+                    <span className="font-semibold text-ink-800">{fmtPrice(p.value)} <span className="text-ink-400 font-normal">({pct}%)</span></span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Top Products ─────────────────────────────────────────────── */}
+      {topProducts.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <Layers className="h-4 w-4 text-ink-400" />
+            <div className="font-semibold text-ink-900">Top Products</div>
+            <span className="text-xs text-ink-400">by revenue</span>
+          </div>
+          <div className="space-y-2">
+            {topProducts.map((p, i) => {
+              const max = topProducts[0].revenue;
+              const pct = max > 0 ? (p.revenue / max) * 100 : 0;
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="w-4 text-right text-[11px] font-bold text-ink-400">{i + 1}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-medium text-ink-800 truncate max-w-[200px]">{p.name}</span>
+                      <span className="text-xs font-bold text-ink-900">{fmtPrice(p.revenue)}</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-100">
+                      <div className="h-full rounded-full bg-gradient-to-r from-brand-400 to-brand-600 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-ink-400 w-14 text-right">{p.qty} units</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Transaction list ─────────────────────────────────────────── */}
+      <Card>
+        <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-4 w-4 text-ink-400" />
+            <span className="font-semibold text-ink-900">Transactions</span>
+          </div>
+          <span className="rounded-full bg-ink-100 px-2.5 py-0.5 text-xs font-bold text-ink-600">{transactions.length}</span>
+        </div>
+        {transactions.length === 0 ? (
+          <Empty icon={ShoppingBag} title="No transactions found" hint="Try adjusting your filters or date range." />
+        ) : (
+          <div className="divide-y divide-ink-100">
+            {transactions.map((tx) => (
+              <TxRow
+                key={`${tx.type}-${tx.id}`}
+                tx={tx}
+                expanded={expanded === `${tx.type}-${tx.id}`}
+                onToggle={() => setExpanded(expanded === `${tx.type}-${tx.id}` ? null : `${tx.type}-${tx.id}`)}
+                onReturn={tx.type === "pos" ? () => setReturnTx(tx) : undefined}
+              />
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {returnTx && (
+        <ReturnModal tx={returnTx} onClose={() => setReturnTx(null)} />
+      )}
+    </PageShell>
+  );
+}
+
+// ── Transaction row ───────────────────────────────────────────────────────
+
+function TxRow({ tx, expanded, onToggle, onReturn }: {
+  tx: SalesTx; expanded: boolean;
+  onToggle: () => void; onReturn?: () => void;
+}) {
+  const isPOS = tx.type === "pos";
+  return (
+    <div>
+      <button className="flex w-full items-center gap-3 px-4 py-3 text-sm hover:bg-ink-50 transition-colors" onClick={onToggle}>
+        <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${isPOS ? "bg-brand-100 text-brand-700" : "bg-blue-100 text-blue-700"}`}>
+          {isPOS ? <ShoppingBag className="h-4 w-4" /> : <Package className="h-4 w-4" />}
+        </div>
+        <div className="flex-1 text-left min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`font-mono text-xs font-semibold ${isPOS ? "text-brand-600" : "text-blue-600"}`}>{tx.ref}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${PAYMENT_COLORS[tx.paymentMethod] || "bg-ink-100 text-ink-600"}`}>
+              {isPOS ? tx.paymentMethod : "Wholesale"}
+            </span>
+            {tx.status && !isPOS && (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${tx.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : tx.status === "cancelled" ? "bg-red-100 text-red-600" : "bg-ink-100 text-ink-600"}`}>
+                {tx.status}
+              </span>
+            )}
+          </div>
+          <div className="text-ink-500 text-xs truncate">{tx.customer} · {formatDate(tx.createdAt)}</div>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <div className="font-bold text-ink-900">{fmtPrice(tx.amount)}</div>
+          <div className="text-[11px] text-ink-400">{tx.itemCount} item{tx.itemCount !== 1 ? "s" : ""}</div>
+        </div>
+        {expanded ? <ChevronDown className="h-4 w-4 text-ink-400 flex-shrink-0" /> : <ChevronRight className="h-4 w-4 text-ink-400 flex-shrink-0" />}
+      </button>
+
+      {expanded && (
+        <div className="border-t border-ink-100 bg-ink-50 px-4 py-3">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+                <th className="pb-2">Product</th>
+                <th className="pb-2 text-center">Qty</th>
+                <th className="pb-2 text-right">Unit</th>
+                <th className="pb-2 text-right">Disc%</th>
+                <th className="pb-2 text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-200">
+              {tx.items.map((item, i) => (
+                <tr key={i}>
+                  <td className="py-1.5 text-ink-700">{item.productName}</td>
+                  <td className="py-1.5 text-center text-ink-500">{item.qty}</td>
+                  <td className="py-1.5 text-right text-ink-500">{fmtPrice(item.unitPrice)}</td>
+                  <td className="py-1.5 text-right text-ink-500">{item.discountPct || 0}%</td>
+                  <td className="py-1.5 text-right font-semibold text-ink-800">{fmtPrice(item.lineTotal)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="mt-3 flex justify-between border-t border-ink-200 pt-2 text-sm font-bold text-ink-900">
+            <span>Total</span>
+            <span>{fmtPrice(tx.amount)}</span>
+          </div>
+          {onReturn && (
+            <div className="mt-3 flex justify-end">
+              <button
+                onClick={(e) => { e.stopPropagation(); onReturn(); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Process Return
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Return Modal ─────────────────────────────────────────────────────────
+
+function ReturnModal({ tx, onClose }: { tx: SalesTx; onClose: () => void }) {
+  const sale = tx.raw as POSSale;
   const [returnQtys, setReturnQtys] = useState<Record<number, number>>(
-    Object.fromEntries(sale.items.map((_, i) => [i, 0]))
+    Object.fromEntries(tx.items.map((_, i) => [i, 0]))
   );
   const [reason, setReason] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState(sale.paymentMethod);
+  const [paymentMethod, setPaymentMethod] = useState(tx.paymentMethod);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  const returnItems: POSReturnItem[] = sale.items
+  const returnItems: POSReturnItem[] = tx.items
     .map((item, i) => {
       const qty = returnQtys[i] || 0;
       if (qty <= 0) return null;
       const lineTotal = item.unitPrice * qty * (1 - (item.discountPct || 0) / 100);
-      return { ...item, qty, lineTotal };
+      return {
+        productId: item.productId ?? 0,
+        productName: item.productName,
+        sku: item.sku ?? "",
+        qty, unitPrice: item.unitPrice,
+        discountPct: item.discountPct ?? 0,
+        lineTotal,
+      };
     })
     .filter(Boolean) as POSReturnItem[];
 
@@ -174,21 +471,17 @@ function ReturnModal({ sale, onClose }: { sale: POSSale; onClose: () => void }) 
     setSaving(true); setError(null);
     try {
       const result = await adminCreatePOSReturn({
-        saleId: sale.id,
-        saleNumber: sale.saleNumber,
-        customerId: sale.customerId,
-        customerName: sale.customerName,
-        items: returnItems,
-        totalRefund,
-        reason: reason.trim() || null,
-        paymentMethod,
+        saleId: tx.id,
+        saleNumber: sale?.saleNumber ?? tx.ref,
+        customerId: tx.customerId,
+        customerName: tx.customer,
+        items: returnItems, totalRefund,
+        reason: reason.trim() || null, paymentMethod,
       });
       setDone(result.returnNumber);
     } catch (e: unknown) {
       setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   if (done) {
@@ -201,39 +494,29 @@ function ReturnModal({ sale, onClose }: { sale: POSSale; onClose: () => void }) 
           <div className="text-lg font-bold text-ink-900">Return Successful</div>
           <div className="font-mono text-sm font-semibold text-emerald-700">{done}</div>
           <div className="text-sm text-ink-500">
-            Refund of <span className="font-bold text-ink-800">{formatPrice(totalRefund)}</span> processed via <span className="capitalize font-medium">{paymentMethod}</span>.
+            Refund of <span className="font-bold text-ink-800">{fmtPrice(totalRefund)}</span> processed via <span className="capitalize font-medium">{paymentMethod}</span>.
             Stock has been restocked automatically.
           </div>
         </div>
-        <div className="flex justify-center">
-          <Btn onClick={onClose}>Close</Btn>
-        </div>
+        <div className="flex justify-center"><Btn onClick={onClose}>Close</Btn></div>
       </Modal>
     );
   }
 
   return (
-    <Modal
-      open
-      onClose={onClose}
-      title={`Process Return — ${sale.saleNumber}`}
-      wide
+    <Modal open onClose={onClose} title={`Process Return — ${tx.ref}`} wide
       footer={
         <>
           <Btn variant="secondary" onClick={onClose} disabled={saving}>Cancel</Btn>
           <Btn onClick={submit} disabled={saving || returnItems.length === 0}>
-            {saving ? "Processing…" : `Refund ${formatPrice(totalRefund)}`}
+            {saving ? "Processing…" : `Refund ${fmtPrice(totalRefund)}`}
           </Btn>
         </>
       }
     >
       <div className="space-y-4">
         <ErrorBanner message={error} />
-
-        <div className="text-xs text-ink-500 mb-1">
-          Customer: <span className="font-semibold text-ink-800">{sale.customerName}</span>
-        </div>
-
+        <div className="text-xs text-ink-500">Customer: <span className="font-semibold text-ink-800">{tx.customer}</span></div>
         <div className="rounded-xl border border-ink-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-ink-50">
@@ -245,28 +528,24 @@ function ReturnModal({ sale, onClose }: { sale: POSSale; onClose: () => void }) 
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
-              {sale.items.map((item, i) => {
+              {tx.items.map((item, i) => {
                 const qty = returnQtys[i] || 0;
                 const lineRefund = item.unitPrice * qty * (1 - (item.discountPct || 0) / 100);
                 return (
                   <tr key={i} className={qty > 0 ? "bg-red-50" : ""}>
                     <td className="px-4 py-2.5">
                       <div className="font-medium text-ink-800">{item.productName}</div>
-                      <div className="text-[11px] text-ink-400">{item.sku}</div>
+                      {item.sku && <div className="text-[11px] text-ink-400">{item.sku}</div>}
                     </td>
                     <td className="px-4 py-2.5 text-center text-ink-500">{item.qty}</td>
                     <td className="px-4 py-2.5 text-center">
-                      <input
-                        type="number"
-                        min={0}
-                        max={item.qty}
-                        value={qty}
-                        onChange={(e) => setReturnQtys((prev) => ({ ...prev, [i]: Math.min(item.qty, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                      <input type="number" min={0} max={item.qty} value={qty}
+                        onChange={(e) => setReturnQtys((p) => ({ ...p, [i]: Math.min(item.qty, Math.max(0, parseInt(e.target.value) || 0)) }))}
                         className="w-16 rounded-md border border-ink-200 px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-red-300"
                       />
                     </td>
                     <td className="px-4 py-2.5 text-right font-semibold text-red-600">
-                      {qty > 0 ? `-${formatPrice(lineRefund)}` : "—"}
+                      {qty > 0 ? `-${fmtPrice(lineRefund)}` : "—"}
                     </td>
                   </tr>
                 );
@@ -275,15 +554,14 @@ function ReturnModal({ sale, onClose }: { sale: POSSale; onClose: () => void }) 
             <tfoot className="bg-ink-50">
               <tr>
                 <td colSpan={3} className="px-4 py-2 text-right text-sm font-bold text-ink-900">Total Refund</td>
-                <td className="px-4 py-2 text-right text-sm font-bold text-red-600">{formatPrice(totalRefund)}</td>
+                <td className="px-4 py-2 text-right text-sm font-bold text-red-600">{fmtPrice(totalRefund)}</td>
               </tr>
             </tfoot>
           </table>
         </div>
-
         <Field label="Refund via">
           <div className="grid grid-cols-4 gap-1">
-            {PAYMENT_METHODS.map((m) => (
+            {PAYMENT_METHODS_LIST.map((m) => (
               <button key={m.key} type="button" onClick={() => setPaymentMethod(m.key)}
                 className={`rounded-lg py-2 text-xs font-semibold transition-colors ${paymentMethod === m.key ? "bg-brand-500 text-white shadow-sm" : "bg-ink-100 text-ink-600 hover:bg-ink-200"}`}>
                 {m.label}
@@ -291,14 +569,8 @@ function ReturnModal({ sale, onClose }: { sale: POSSale; onClose: () => void }) 
             ))}
           </div>
         </Field>
-
         <Field label="Reason (optional)">
-          <input
-            className="input"
-            placeholder="e.g. Defective product, wrong item…"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
+          <input className="input" placeholder="e.g. Defective product, wrong item…" value={reason} onChange={(e) => setReason(e.target.value)} />
         </Field>
       </div>
     </Modal>

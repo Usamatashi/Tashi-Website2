@@ -23,6 +23,7 @@ import posRouter from "./routes/pos.js";
 import stockRouter from "./routes/stock.js";
 import posCustomersRouter from "./routes/pos-customers.js";
 import posReturnsRouter from "./routes/pos-returns.js";
+import salesAnalyticsRouter from "./routes/sales-analytics.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -84,6 +85,7 @@ app.use("/api/admin/pos/sales", posRouter);
 app.use("/api/admin/pos/stock", stockRouter);
 app.use("/api/admin/pos/customers", posCustomersRouter);
 app.use("/api/admin/pos/returns", posReturnsRouter);
+app.use("/api/admin/sales-analytics", salesAnalyticsRouter);
 
 const isProd = process.env.NODE_ENV === "production";
 
