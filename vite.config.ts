@@ -10,8 +10,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
-      "recharts": path.resolve(import.meta.dirname, "node_modules/recharts/lib/index.js"),
     },
+    conditions: ["import", "module", "browser", "default"],
   },
   root: path.resolve(import.meta.dirname),
   optimizeDeps: {
