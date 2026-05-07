@@ -25,9 +25,7 @@ export default function AdminProducts() {
   const categories = useMemo(() => {
     const seen = new Set<string>();
     for (const p of items) if (p.category) seen.add(p.category);
-    const fromProducts = Array.from(seen);
-    const merged = [...new Set([...DEFAULT_CATEGORIES, ...fromProducts])];
-    return merged;
+    return Array.from(seen);
   }, [items]);
 
   const filtered = useMemo(() => {
