@@ -182,29 +182,33 @@ export default function AdminPurchases() {
 
       {/* Stats */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-blue-400">Total Purchased</div>
           <div className="mt-2 font-display text-3xl font-bold text-blue-700">{formatPrice(totalPurchased)}</div>
+          <div className="text-xs text-blue-400 mt-1">{purchases.length} order{purchases.length !== 1 ? "s" : ""}</div>
         </div>
-        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5 flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-amber-500">Credit Outstanding</div>
           <div className="mt-2 font-display text-3xl font-bold text-amber-700">{formatPrice(totalCredit)}</div>
-          <div className="text-xs text-amber-500">{purchases.filter((p) => p.paymentStatus !== "paid").length} unpaid/partial</div>
+          <div className="text-xs text-amber-500 mt-1">{purchases.filter((p) => p.paymentStatus !== "paid").length} unpaid/partial</div>
         </div>
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-red-400">Total Returns</div>
           <div className="mt-2 font-display text-3xl font-bold text-red-600">{formatPrice(totalReturned)}</div>
+          <div className="text-xs text-red-400 mt-1">{returns.length} return{returns.length !== 1 ? "s" : ""}</div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="mb-6 flex gap-1 rounded-xl bg-ink-100 p-1 w-fit">
-        {(["purchases", "returns"] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize transition-all ${tab === t ? "bg-white text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"}`}>
-            {t === "purchases" ? `Purchases (${purchases.length})` : `Returns (${returns.length})`}
-          </button>
-        ))}
+      <div className="mb-6 flex justify-center">
+        <div className="flex gap-1 rounded-xl bg-ink-100 p-1">
+          {(["purchases", "returns"] as const).map((t) => (
+            <button key={t} onClick={() => setTab(t)}
+              className={`rounded-lg px-6 py-2 text-sm font-semibold capitalize transition-all ${tab === t ? "bg-brand-600 text-white shadow-sm" : "text-ink-500 hover:text-ink-800"}`}>
+              {t === "purchases" ? `Purchases (${purchases.length})` : `Returns (${returns.length})`}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === "purchases" && (
