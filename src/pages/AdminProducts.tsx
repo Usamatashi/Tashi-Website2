@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { Package, Plus, Pencil, Trash2, Search } from "lucide-react";
+import { Package, Plus, Pencil, Trash2, Search, Loader2 } from "lucide-react";
+import { removeBackground } from "@imgly/background-removal";
 import {
   adminListProducts, adminCreateProduct, adminUpdateProduct, adminDeleteProduct,
   fileToBase64, formatPrice, type AdminProduct,
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Empty, Btn, Modal, Field, ErrorBanner, Card } from "@/components/admin/ui";
+
+async function fileToBase64WithBgRemoval(file: File): Promise<string> {
+  const blob = await removeBackground(file);
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
 
 const DEFAULT_CATEGORIES = ["disc_pad", "drum_shoe", "shoe_lining", "other"];
 
@@ -153,7 +164,20 @@ function ProductForm({
   const [imageBase64, setImageBase64] = useState<string | undefined>(undefined);
   const [diagramBase64, setDiagramBase64] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  const [removingBg, setRemovingBg] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function onPickImage(f: File | undefined) {
+    if (!f) return;
+    setRemovingBg(true);
+    try {
+      setImageBase64(await fileToBase64WithBgRemoval(f));
+    } catch {
+      setImageBase64(await fileToBase64(f));
+    } finally {
+      setRemovingBg(false);
+    }
+  }
 
   async function onPick(f: File | undefined, setter: (v: string | undefined) => void) {
     if (!f) return;
@@ -243,8 +267,16 @@ function ProductForm({
           </div>
         )}
         <Field label="Product image">
-          <input type="file" accept="image/*" onChange={(e) => onPick(e.target.files?.[0], setImageBase64)} />
-          {imageBase64 && <img src={imageBase64} className="mt-2 h-24 w-24 rounded-lg object-cover" />}
+          <input type="file" accept="image/*" disabled={removingBg} onChange={(e) => onPickImage(e.target.files?.[0])} />
+          {removingBg && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-ink-500">
+              <Loader2 className="h-4 w-4 animate-spin text-brand-500" />
+              Removing background…
+            </div>
+          )}
+          {imageBase64 && !removingBg && (
+            <img src={imageBase64} className="mt-2 h-24 w-24 rounded-lg object-contain bg-ink-50 border border-ink-100 p-1" />
+          )}
         </Field>
         <Field label="Diagram (optional)">
           <input type="file" accept="image/*" onChange={(e) => onPick(e.target.files?.[0], setDiagramBase64)} />
