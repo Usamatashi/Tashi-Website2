@@ -13,9 +13,15 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname),
+  optimizeDeps: {
+    include: ["recharts"],
+  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
+    commonjsOptions: {
+      include: [/recharts/, /node_modules/],
+    },
   },
   server: {
     port,
