@@ -1,0 +1,358 @@
+import { useEffect, useState } from "react";
+import {
+  ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight, RotateCcw,
+  Package, CheckCircle2, Clock, AlertCircle,
+} from "lucide-react";
+import {
+  adminListPurchases, adminCreatePurchase, adminUpdatePurchase, adminDeletePurchase,
+  adminListPurchaseReturns, adminCreatePurchaseReturn,
+  adminListSuppliers, formatPrice, formatDate,
+  type Purchase, type PurchaseReturn, type Supplier,
+} from "@/lib/admin";
+import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
+
+const PAYMENT_STATUS: { key: Purchase["paymentStatus"]; label: string; color: string; icon: typeof Clock }[] = [
+  { key: "unpaid", label: "Unpaid", color: "bg-red-100 text-red-700", icon: AlertCircle },
+  { key: "partial", label: "Partial", color: "bg-amber-100 text-amber-700", icon: Clock },
+  { key: "paid", label: "Paid", color: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+];
+
+type PurchaseItem = { productName: string; sku: string; qty: string; unitCost: string };
+const emptyItem = (): PurchaseItem => ({ productName: "", sku: "", qty: "1", unitCost: "" });
+
+type PurchaseForm = { supplierId: string; supplierName: string; paymentStatus: Purchase["paymentStatus"]; notes: string; date: string; items: PurchaseItem[] };
+const emptyPurchaseForm = (): PurchaseForm => ({
+  supplierId: "", supplierName: "", paymentStatus: "unpaid",
+  notes: "", date: new Date().toISOString().slice(0, 10), items: [emptyItem()],
+});
+
+type ReturnItem = { productName: string; sku: string; qty: string; unitCost: string; lineTotal: string };
+
+export default function AdminPurchases() {
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
+  const [returns, setReturns] = useState<PurchaseReturn[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"purchases" | "returns">("purchases");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<PurchaseForm>(emptyPurchaseForm());
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [returnPurchase, setReturnPurchase] = useState<Purchase | null>(null);
+  const [returnItems, setReturnItems] = useState<ReturnItem[]>([]);
+  const [returnReason, setReturnReason] = useState("");
+  const [returnErr, setReturnErr] = useState<string | null>(null);
+  const [returnSaving, setReturnSaving] = useState(false);
+
+  useEffect(() => {
+    Promise.all([adminListPurchases(), adminListPurchaseReturns(), adminListSuppliers()])
+      .then(([p, r, s]) => { setPurchases(p); setReturns(r); setSuppliers(s); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  function openCreate() { setForm(emptyPurchaseForm()); setErr(null); setShowForm(true); }
+
+  function updateItem(idx: number, field: keyof PurchaseItem, val: string) {
+    setForm((f) => { const items = [...f.items]; items[idx] = { ...items[idx], [field]: val }; return { ...f, items }; });
+  }
+
+  function addItem() { setForm((f) => ({ ...f, items: [...f.items, emptyItem()] })); }
+  function removeItem(idx: number) { setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) })); }
+
+  const formTotal = form.items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitCost) || 0), 0);
+
+  async function handleSave() {
+    setErr(null);
+    if (!form.items.length || form.items.some((i) => !i.productName.trim() || Number(i.qty) <= 0 || Number(i.unitCost) <= 0)) {
+      setErr("All items must have a name, quantity, and cost"); return;
+    }
+    setSaving(true);
+    try {
+      const created = await adminCreatePurchase({
+        supplierId: form.supplierId || null,
+        supplierName: form.supplierName,
+        paymentStatus: form.paymentStatus,
+        notes: form.notes,
+        date: form.date,
+        items: form.items.map((i) => ({ productName: i.productName, sku: i.sku, qty: Number(i.qty), unitCost: Number(i.unitCost), lineTotal: Number(i.qty) * Number(i.unitCost) })),
+      });
+      setPurchases((prev) => [created, ...prev]);
+      setShowForm(false);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handlePaymentStatus(p: Purchase, status: Purchase["paymentStatus"]) {
+    const updated = await adminUpdatePurchase(p.id, { paymentStatus: status });
+    setPurchases((prev) => prev.map((x) => x.id === p.id ? updated : x));
+  }
+
+  async function handleDelete(p: Purchase) {
+    if (!confirm(`Delete purchase ${p.purchaseNumber}?`)) return;
+    await adminDeletePurchase(p.id);
+    setPurchases((prev) => prev.filter((x) => x.id !== p.id));
+  }
+
+  function openReturn(p: Purchase) {
+    setReturnPurchase(p);
+    setReturnItems(p.items.map((i) => ({ productName: i.productName, sku: i.sku || "", qty: String(i.qty), unitCost: String(i.unitCost), lineTotal: String(i.lineTotal) })));
+    setReturnReason("");
+    setReturnErr(null);
+  }
+
+  function updateReturnItem(idx: number, field: keyof ReturnItem, val: string) {
+    setReturnItems((items) => { const r = [...items]; r[idx] = { ...r[idx], [field]: val }; return r; });
+  }
+
+  async function handleReturn() {
+    setReturnErr(null);
+    if (!returnPurchase) return;
+    const validItems = returnItems.filter((i) => Number(i.qty) > 0);
+    if (!validItems.length) { setReturnErr("At least one item required"); return; }
+    setReturnSaving(true);
+    try {
+      const items = validItems.map((i) => ({ productName: i.productName, sku: i.sku, qty: Number(i.qty), unitCost: Number(i.unitCost), lineTotal: Number(i.qty) * Number(i.unitCost) }));
+      const totalReturn = items.reduce((s, i) => s + i.lineTotal, 0);
+      const created = await adminCreatePurchaseReturn({
+        purchaseId: returnPurchase.id, purchaseNumber: returnPurchase.purchaseNumber,
+        supplierId: returnPurchase.supplierId ?? undefined, supplierName: returnPurchase.supplierName ?? undefined,
+        items, totalReturn, reason: returnReason,
+      });
+      setReturns((prev) => [created, ...prev]);
+      setReturnPurchase(null);
+    } catch (e: unknown) { setReturnErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setReturnSaving(false); }
+  }
+
+  if (loading) return <PageShell><Loading /></PageShell>;
+
+  const totalPurchased = purchases.reduce((s, p) => s + p.totalAmount, 0);
+  const totalReturned = returns.reduce((s, r) => s + r.totalReturn, 0);
+  const unpaidCount = purchases.filter((p) => p.paymentStatus === "unpaid").length;
+
+  return (
+    <PageShell>
+      <PageHeader title="Purchases" subtitle="Manage stock purchases and purchase returns"
+        actions={<Btn onClick={openCreate}><Plus className="h-4 w-4" />New Purchase</Btn>} />
+
+      {/* Stats */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-blue-400">Total Purchased</div>
+          <div className="mt-2 font-display text-3xl font-bold text-blue-700">{formatPrice(totalPurchased)}</div>
+        </div>
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-red-400">Total Returns</div>
+          <div className="mt-2 font-display text-3xl font-bold text-red-600">{formatPrice(totalReturned)}</div>
+        </div>
+        <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-amber-500">Unpaid Orders</div>
+          <div className="mt-2 font-display text-3xl font-bold text-amber-700">{unpaidCount}</div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6 flex gap-1 rounded-xl bg-ink-100 p-1 w-fit">
+        {(["purchases", "returns"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize transition-all ${tab === t ? "bg-white text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-800"}`}>
+            {t === "purchases" ? `Purchases (${purchases.length})` : `Returns (${returns.length})`}
+          </button>
+        ))}
+      </div>
+
+      {tab === "purchases" && (
+        <Card>
+          {purchases.length === 0 ? (
+            <Empty icon={ShoppingCart} title="No purchases yet" hint='Click "New Purchase" to record your first purchase.' />
+          ) : (
+            <div className="divide-y divide-ink-100">
+              {purchases.map((p) => {
+                const isExp = expanded === p.id;
+                const statusInfo = PAYMENT_STATUS.find((s) => s.key === p.paymentStatus)!;
+                return (
+                  <div key={p.id}>
+                    <button className="flex w-full items-center gap-4 px-5 py-3 text-left hover:bg-ink-50 transition-colors" onClick={() => setExpanded(isExp ? null : p.id)}>
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                        <ShoppingCart className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-blue-600">{p.purchaseNumber}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusInfo.color}`}>{statusInfo.label}</span>
+                        </div>
+                        <div className="text-xs text-ink-500">{p.supplierName || "No supplier"} · {formatDate(p.createdAt)} · {p.items.length} item{p.items.length !== 1 ? "s" : ""}</div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <div className="font-bold text-ink-900">{formatPrice(p.totalAmount)}</div>
+                      </div>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button onClick={(e) => { e.stopPropagation(); openReturn(p); }} className="rounded-lg p-1.5 text-ink-400 hover:bg-amber-50 hover:text-amber-600 transition-colors" title="Return"><RotateCcw className="h-3.5 w-3.5" /></button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(p); }} className="rounded-lg p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                        {isExp ? <ChevronDown className="h-4 w-4 text-ink-400" /> : <ChevronRight className="h-4 w-4 text-ink-400" />}
+                      </div>
+                    </button>
+                    {isExp && (
+                      <div className="border-t border-ink-100 bg-ink-50 px-5 py-3">
+                        <table className="w-full text-xs mb-3">
+                          <thead><tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+                            <th className="pb-2">Product</th><th className="pb-2 text-center">Qty</th><th className="pb-2 text-right">Unit Cost</th><th className="pb-2 text-right">Total</th>
+                          </tr></thead>
+                          <tbody className="divide-y divide-ink-200">
+                            {p.items.map((item, i) => (
+                              <tr key={i}><td className="py-1.5 text-ink-700">{item.productName}</td><td className="py-1.5 text-center text-ink-500">{item.qty}</td><td className="py-1.5 text-right text-ink-500">{formatPrice(item.unitCost)}</td><td className="py-1.5 text-right font-semibold text-ink-900">{formatPrice(item.lineTotal)}</td></tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {p.notes && <p className="mb-3 text-xs text-ink-400 italic">{p.notes}</p>}
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-ink-500">Payment:</span>
+                          {PAYMENT_STATUS.map((s) => (
+                            <button key={s.key} onClick={() => handlePaymentStatus(p, s.key)}
+                              className={`rounded-full px-2.5 py-1 text-xs font-bold transition-all ${p.paymentStatus === s.key ? s.color + " ring-2 ring-offset-1 ring-current" : "bg-ink-100 text-ink-500 hover:bg-ink-200"}`}>
+                              {s.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {tab === "returns" && (
+        <Card>
+          {returns.length === 0 ? (
+            <Empty icon={RotateCcw} title="No purchase returns yet" hint="Use the return button on a purchase to create a return." />
+          ) : (
+            <div className="divide-y divide-ink-100">
+              {returns.map((r) => {
+                const isExp = expanded === `ret-${r.id}`;
+                return (
+                  <div key={r.id}>
+                    <button className="flex w-full items-center gap-4 px-5 py-3 hover:bg-ink-50 transition-colors" onClick={() => setExpanded(isExp ? null : `ret-${r.id}`)}>
+                      <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600"><RotateCcw className="h-4 w-4" /></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-red-600">{r.returnNumber}</span>
+                          <span className="text-[10px] text-ink-400">← {r.purchaseNumber}</span>
+                        </div>
+                        <div className="text-xs text-ink-500">{r.supplierName || "No supplier"} · {formatDate(r.createdAt)}</div>
+                      </div>
+                      <div className="font-bold text-red-600 flex-shrink-0">-{formatPrice(r.totalReturn)}</div>
+                      {isExp ? <ChevronDown className="h-4 w-4 text-ink-400" /> : <ChevronRight className="h-4 w-4 text-ink-400" />}
+                    </button>
+                    {isExp && (
+                      <div className="border-t border-ink-100 bg-ink-50 px-5 py-3">
+                        <table className="w-full text-xs">
+                          <thead><tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-ink-400">
+                            <th className="pb-2">Product</th><th className="pb-2 text-center">Qty</th><th className="pb-2 text-right">Unit</th><th className="pb-2 text-right">Total</th>
+                          </tr></thead>
+                          <tbody className="divide-y divide-ink-200">
+                            {r.items.map((item, i) => (
+                              <tr key={i}><td className="py-1.5 text-ink-700">{item.productName}</td><td className="py-1.5 text-center">{item.qty}</td><td className="py-1.5 text-right">{formatPrice(item.unitCost)}</td><td className="py-1.5 text-right font-semibold text-red-600">-{formatPrice(item.lineTotal)}</td></tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {r.reason && <p className="mt-2 text-xs text-ink-400 italic">Reason: {r.reason}</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* New Purchase Modal */}
+      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Purchase Order" wide
+        footer={<><Btn variant="secondary" onClick={() => setShowForm(false)}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : `Save — ${formatPrice(formTotal)}`}</Btn></>}>
+        <div className="space-y-4">
+          <ErrorBanner message={err} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Supplier">
+              <select value={form.supplierId} onChange={(e) => {
+                const s = suppliers.find((x) => String(x.id) === e.target.value);
+                setForm({ ...form, supplierId: e.target.value, supplierName: s?.name || "" });
+              }} className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300">
+                <option value="">— No supplier —</option>
+                {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Date">
+              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+            </Field>
+          </div>
+          <Field label="Payment Status">
+            <div className="mt-1 flex gap-2">
+              {PAYMENT_STATUS.map((s) => (
+                <button key={s.key} type="button" onClick={() => setForm({ ...form, paymentStatus: s.key })}
+                  className={`rounded-full px-3 py-1.5 text-xs font-bold transition-all ${form.paymentStatus === s.key ? s.color + " ring-2 ring-offset-1 ring-current" : "bg-ink-100 text-ink-500 hover:bg-ink-200"}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </Field>
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">Items</span>
+              <button type="button" onClick={addItem} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 transition-colors"><Plus className="h-3 w-3" />Add Item</button>
+            </div>
+            <div className="space-y-2">
+              {form.items.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  <input placeholder="Product name" value={item.productName} onChange={(e) => updateItem(idx, "productName", e.target.value)}
+                    className="col-span-5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+                  <input placeholder="SKU" value={item.sku} onChange={(e) => updateItem(idx, "sku", e.target.value)}
+                    className="col-span-2 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+                  <input type="number" placeholder="Qty" value={item.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} min="1"
+                    className="col-span-2 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+                  <input type="number" placeholder="Cost" value={item.unitCost} onChange={(e) => updateItem(idx, "unitCost", e.target.value)} min="0"
+                    className="col-span-2 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+                  <button type="button" onClick={() => removeItem(idx)} className="col-span-1 rounded-lg p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-right text-sm font-bold text-ink-900">Total: {formatPrice(formTotal)}</div>
+          </div>
+          <Field label="Notes">
+            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2}
+              className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
+          </Field>
+        </div>
+      </Modal>
+
+      {/* Purchase Return Modal */}
+      {returnPurchase && (
+        <Modal open={!!returnPurchase} onClose={() => setReturnPurchase(null)} title={`Return — ${returnPurchase.purchaseNumber}`} wide
+          footer={<><Btn variant="secondary" onClick={() => setReturnPurchase(null)}>Cancel</Btn><Btn variant="danger" onClick={handleReturn} disabled={returnSaving}>{returnSaving ? "Processing…" : "Submit Return"}</Btn></>}>
+          <div className="space-y-4">
+            <ErrorBanner message={returnErr} />
+            <p className="text-sm text-ink-500">Set qty to 0 to exclude an item from the return.</p>
+            <div className="space-y-2">
+              {returnItems.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-12 gap-2 items-center">
+                  <span className="col-span-6 text-sm text-ink-700 truncate">{item.productName}</span>
+                  <span className="col-span-3 text-xs text-ink-400 text-right">{formatPrice(Number(item.unitCost))} each</span>
+                  <input type="number" value={item.qty} onChange={(e) => updateReturnItem(idx, "qty", e.target.value)} min="0"
+                    className="col-span-3 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+                </div>
+              ))}
+            </div>
+            <Field label="Reason">
+              <input value={returnReason} onChange={(e) => setReturnReason(e.target.value)} placeholder="Reason for return"
+                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+            </Field>
+          </div>
+        </Modal>
+      )}
+    </PageShell>
+  );
+}

@@ -1,0 +1,128 @@
+import { Router } from "express";
+import { db, toISOString, nextId } from "../lib/firebase.js";
+import { requireAdmin } from "../lib/auth.js";
+
+const router = Router();
+router.use(requireAdmin);
+
+function toNum(v, d = 0) { const n = Number(v); return isNaN(n) ? d : n; }
+function sanitize(v, max = 500) { if (typeof v !== "string") return ""; return v.trim().slice(0, max); }
+function padNum(n, len = 6) { return String(n).padStart(len, "0"); }
+
+// ── Purchases ────────────────────────────────────────────────────────────────
+
+router.get("/", async (req, res) => {
+  try {
+    let snap;
+    try { snap = await db.collection("purchases").orderBy("createdAt", "desc").get(); }
+    catch { snap = await db.collection("purchases").get(); }
+    let items = snap.docs.map((d) => ({ id: d.id, ...d.data(), createdAt: toISOString(d.data().createdAt) }));
+    if (req.query.supplierId) items = items.filter((p) => String(p.supplierId) === String(req.query.supplierId));
+    res.json(items);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post("/", async (req, res) => {
+  try {
+    const { supplierId, supplierName, items, paymentStatus, notes, date } = req.body;
+    if (!items?.length) return res.status(400).json({ error: "At least one item is required" });
+    const id = await nextId("purchases");
+    const purchaseNumber = `PO-${padNum(id)}`;
+    const cleanItems = items.map((i) => ({
+      productName: sanitize(i.productName, 200),
+      sku: sanitize(i.sku, 80),
+      qty: toNum(i.qty),
+      unitCost: toNum(i.unitCost),
+      lineTotal: toNum(i.qty) * toNum(i.unitCost),
+    }));
+    const totalAmount = cleanItems.reduce((s, i) => s + i.lineTotal, 0);
+    const doc = {
+      id, purchaseNumber,
+      supplierId: supplierId ? String(supplierId) : null,
+      supplierName: sanitize(supplierName, 200),
+      items: cleanItems,
+      totalAmount: Math.round(totalAmount),
+      paymentStatus: ["unpaid", "partial", "paid"].includes(paymentStatus) ? paymentStatus : "unpaid",
+      notes: sanitize(notes, 1000),
+      date: sanitize(date, 20) || new Date().toISOString().slice(0, 10),
+      recordedBy: req.admin?.userId ?? null,
+      createdAt: new Date(),
+    };
+    await db.collection("purchases").doc(String(id)).set(doc);
+    res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.patch("/:id", async (req, res) => {
+  try {
+    const ref = db.collection("purchases").doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ error: "Purchase not found" });
+    const { paymentStatus, notes } = req.body;
+    const update = {};
+    if (paymentStatus !== undefined) {
+      if (!["unpaid", "partial", "paid"].includes(paymentStatus)) return res.status(400).json({ error: "Invalid paymentStatus" });
+      update.paymentStatus = paymentStatus;
+    }
+    if (notes !== undefined) update.notes = sanitize(notes, 1000);
+    await ref.update(update);
+    const d = (await ref.get()).data();
+    res.json({ id: req.params.id, ...d, createdAt: toISOString(d.createdAt) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const ref = db.collection("purchases").doc(req.params.id);
+    if (!(await ref.get()).exists) return res.status(404).json({ error: "Purchase not found" });
+    await ref.delete();
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Purchase Returns ─────────────────────────────────────────────────────────
+
+router.get("/returns", async (_req, res) => {
+  try {
+    let snap;
+    try { snap = await db.collection("purchase_returns").orderBy("createdAt", "desc").get(); }
+    catch { snap = await db.collection("purchase_returns").get(); }
+    res.json(snap.docs.map((d) => ({ id: d.id, ...d.data(), createdAt: toISOString(d.data().createdAt) })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.post("/returns", async (req, res) => {
+  try {
+    const { purchaseId, purchaseNumber, supplierId, supplierName, items, totalReturn, reason } = req.body;
+    if (!purchaseId) return res.status(400).json({ error: "purchaseId is required" });
+    if (!items?.length) return res.status(400).json({ error: "At least one item is required" });
+
+    const purchaseRef = db.collection("purchases").doc(String(purchaseId));
+    if (!(await purchaseRef.get()).exists) return res.status(404).json({ error: "Purchase not found" });
+
+    const id = await nextId("purchase_returns");
+    const returnNumber = `PR-${padNum(id)}`;
+    const cleanItems = items.map((i) => ({
+      productName: sanitize(i.productName, 200),
+      sku: sanitize(i.sku, 80),
+      qty: toNum(i.qty),
+      unitCost: toNum(i.unitCost),
+      lineTotal: toNum(i.lineTotal) || toNum(i.qty) * toNum(i.unitCost),
+    }));
+    const doc = {
+      id, returnNumber,
+      purchaseId: String(purchaseId),
+      purchaseNumber: sanitize(purchaseNumber, 50),
+      supplierId: supplierId ? String(supplierId) : null,
+      supplierName: sanitize(supplierName, 200),
+      items: cleanItems,
+      totalReturn: toNum(totalReturn) || cleanItems.reduce((s, i) => s + i.lineTotal, 0),
+      reason: sanitize(reason, 1000),
+      processedBy: req.admin?.userId ?? null,
+      createdAt: new Date(),
+    };
+    await db.collection("purchase_returns").doc(String(id)).set(doc);
+    res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+export default router;

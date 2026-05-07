@@ -36,6 +36,10 @@ const AdminStock = lazy(() => import("@/pages/AdminStock"));
 const AdminPOSCustomers = lazy(() => import("@/pages/AdminPOSCustomers"));
 const AdminPOSSales = lazy(() => import("@/pages/AdminPOSSales"));
 const AdminPOSReturns = lazy(() => import("@/pages/AdminPOSReturns"));
+const AdminCareers = lazy(() => import("@/pages/AdminCareers"));
+const AdminSuppliers = lazy(() => import("@/pages/AdminSuppliers"));
+const AdminExpenses = lazy(() => import("@/pages/AdminExpenses"));
+const AdminPurchases = lazy(() => import("@/pages/AdminPurchases"));
 
 function PageLoader() {
   return (
@@ -78,6 +82,10 @@ export default function App() {
             <Route path="pos-customers" element={<AdminPOSCustomers />} />
             <Route path="pos-sales" element={<AdminPOSSales />} />
             <Route path="pos-returns" element={<AdminPOSReturns />} />
+            <Route path="careers" element={<AdminCareers />} />
+            <Route path="suppliers" element={<AdminSuppliers />} />
+            <Route path="expenses" element={<AdminExpenses />} />
+            <Route path="purchases" element={<AdminPurchases />} />
           </Route>
         </Routes>
       </Suspense>

@@ -501,6 +501,112 @@ export async function adminDeletePOSCustomer(id: string) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/pos/customers/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
+// ── Careers ───────────────────────────────────────────────────────────────
+export type CareerJob = {
+  id: string; title: string; department: string | null; location: string | null;
+  type: string | null; description: string | null; requirements: string | null;
+  isOpen: boolean; createdAt: string | null;
+};
+export type CareerApplication = {
+  id: string; jobId: string; jobTitle: string;
+  applicantName: string; email: string | null; phone: string | null;
+  coverLetter: string | null; status: "new" | "reviewing" | "shortlisted" | "rejected";
+  createdAt: string | null;
+};
+export async function adminListCareerJobs() {
+  return handle<CareerJob[]>(await apiFetch("/api/careers/jobs", j()));
+}
+export async function adminCreateCareerJob(body: Partial<CareerJob>) {
+  return handle<CareerJob>(await apiFetch("/api/careers/jobs", json(body)));
+}
+export async function adminUpdateCareerJob(id: string, body: Partial<CareerJob>) {
+  return handle<CareerJob>(await apiFetch(`/api/careers/jobs/${id}`, json(body, "PUT")));
+}
+export async function adminDeleteCareerJob(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/careers/jobs/${id}`, { method: "DELETE", credentials: "include" }));
+}
+export async function adminListCareerApplications(jobId?: string) {
+  const url = jobId ? `/api/careers/applications?jobId=${jobId}` : "/api/careers/applications";
+  return handle<CareerApplication[]>(await apiFetch(url, j()));
+}
+export async function adminUpdateCareerApplication(id: string, status: CareerApplication["status"]) {
+  return handle<CareerApplication>(await apiFetch(`/api/careers/applications/${id}`, json({ status }, "PATCH")));
+}
+
+// ── Suppliers ─────────────────────────────────────────────────────────────
+export type Supplier = {
+  id: string; name: string; phone: string | null; email: string | null;
+  address: string | null; city: string | null; notes: string | null; createdAt: string | null;
+};
+export async function adminListSuppliers() {
+  return handle<Supplier[]>(await apiFetch("/api/admin/suppliers", j()));
+}
+export async function adminCreateSupplier(body: Partial<Supplier>) {
+  return handle<Supplier>(await apiFetch("/api/admin/suppliers", json(body)));
+}
+export async function adminUpdateSupplier(id: string, body: Partial<Supplier>) {
+  return handle<Supplier>(await apiFetch(`/api/admin/suppliers/${id}`, json(body, "PUT")));
+}
+export async function adminDeleteSupplier(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/suppliers/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
+// ── Expenses ──────────────────────────────────────────────────────────────
+export type Expense = {
+  id: string; expenseNumber: string; category: string; amount: number;
+  description: string | null; date: string; supplierId: string | null;
+  supplierName: string | null; paymentMethod: string; notes: string | null; createdAt: string | null;
+};
+export async function adminListExpenses(params: { from?: string; to?: string; category?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  if (params.category) q.set("category", params.category);
+  return handle<Expense[]>(await apiFetch(`/api/admin/expenses?${q}`, j()));
+}
+export async function adminCreateExpense(body: Partial<Expense> & { amount: number }) {
+  return handle<Expense>(await apiFetch("/api/admin/expenses", json(body)));
+}
+export async function adminUpdateExpense(id: string, body: Partial<Expense>) {
+  return handle<Expense>(await apiFetch(`/api/admin/expenses/${id}`, json(body, "PUT")));
+}
+export async function adminDeleteExpense(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/expenses/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
+// ── Purchases ─────────────────────────────────────────────────────────────
+export type PurchaseItem = { productName: string; sku: string; qty: number; unitCost: number; lineTotal: number };
+export type Purchase = {
+  id: string; purchaseNumber: string; supplierId: string | null; supplierName: string | null;
+  items: PurchaseItem[]; totalAmount: number;
+  paymentStatus: "unpaid" | "partial" | "paid";
+  notes: string | null; date: string; createdAt: string | null;
+};
+export type PurchaseReturn = {
+  id: string; returnNumber: string; purchaseId: string; purchaseNumber: string;
+  supplierId: string | null; supplierName: string | null;
+  items: PurchaseItem[]; totalReturn: number; reason: string | null; createdAt: string | null;
+};
+export async function adminListPurchases(supplierId?: string) {
+  const url = supplierId ? `/api/admin/purchases?supplierId=${supplierId}` : "/api/admin/purchases";
+  return handle<Purchase[]>(await apiFetch(url, j()));
+}
+export async function adminCreatePurchase(body: Omit<Purchase, "id" | "purchaseNumber" | "totalAmount" | "createdAt"> & { items: Array<Omit<PurchaseItem, "lineTotal">> }) {
+  return handle<Purchase>(await apiFetch("/api/admin/purchases", json(body)));
+}
+export async function adminUpdatePurchase(id: string, body: { paymentStatus?: Purchase["paymentStatus"]; notes?: string }) {
+  return handle<Purchase>(await apiFetch(`/api/admin/purchases/${id}`, json(body, "PATCH")));
+}
+export async function adminDeletePurchase(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/purchases/${id}`, { method: "DELETE", credentials: "include" }));
+}
+export async function adminListPurchaseReturns() {
+  return handle<PurchaseReturn[]>(await apiFetch("/api/admin/purchases/returns", j()));
+}
+export async function adminCreatePurchaseReturn(body: { purchaseId: string; purchaseNumber: string; supplierId?: string | null; supplierName?: string; items: PurchaseItem[]; totalReturn: number; reason?: string }) {
+  return handle<PurchaseReturn>(await apiFetch("/api/admin/purchases/returns", json(body)));
+}
+
 // ── Constants & helpers ──────────────────────────────────────────────────
 export const STATUS_META: Record<string, { label: string; tone: string; ring: string; dot: string }> = {
   pending: { label: "Pending", tone: "bg-amber-50 text-amber-800", ring: "ring-amber-200", dot: "bg-amber-500" },

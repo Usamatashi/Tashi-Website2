@@ -24,6 +24,10 @@ import stockRouter from "./routes/stock.js";
 import posCustomersRouter from "./routes/pos-customers.js";
 import posReturnsRouter from "./routes/pos-returns.js";
 import salesAnalyticsRouter from "./routes/sales-analytics.js";
+import careersRouter from "./routes/careers.js";
+import suppliersRouter from "./routes/suppliers.js";
+import expensesRouter from "./routes/expenses.js";
+import purchasesRouter from "./routes/purchases.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -87,6 +91,10 @@ app.use("/api/admin/pos/stock", stockRouter);
 app.use("/api/admin/pos/customers", posCustomersRouter);
 app.use("/api/admin/pos/returns", posReturnsRouter);
 app.use("/api/admin/sales-analytics", salesAnalyticsRouter);
+app.use("/api/careers", careersRouter);
+app.use("/api/admin/suppliers", suppliersRouter);
+app.use("/api/admin/expenses", expensesRouter);
+app.use("/api/admin/purchases", purchasesRouter);
 
 const isProd = process.env.NODE_ENV === "production";
 

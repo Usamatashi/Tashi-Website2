@@ -200,13 +200,29 @@ router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // POS revenue — sum `total` for sales this month
-    const posSnap = await db.collection("pos_sales").get();
+    // POS revenue — sum `total` for sales this month, minus returns for those sales
+    const [posSnap, returnsSnap] = await Promise.all([
+      db.collection("pos_sales").get(),
+      db.collection("pos_returns").get(),
+    ]);
+
+    // Build map: saleId -> totalRefunded
+    const returnsMap = {};
+    returnsSnap.forEach((d) => {
+      const r = d.data();
+      if (!r.saleId) return;
+      returnsMap[r.saleId] = (returnsMap[r.saleId] || 0) + toNumber(r.totalRefund, 0);
+    });
+
     let posRevenue = 0;
     posSnap.forEach((d) => {
       const data = d.data();
       const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
-      if (ct >= monthStart) posRevenue += toNumber(data.total, 0);
+      if (ct >= monthStart) {
+        const gross = toNumber(data.total, 0);
+        const refunded = returnsMap[d.id] || 0;
+        posRevenue += Math.max(0, gross - refunded);
+      }
     });
 
     // Wholesale revenue — orders this month (non-website, non-cancelled)

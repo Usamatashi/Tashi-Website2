@@ -1,0 +1,247 @@
+import { useEffect, useState } from "react";
+import { Receipt, Plus, Pencil, Trash2, TrendingDown, Calendar, Filter } from "lucide-react";
+import {
+  adminListExpenses, adminCreateExpense, adminUpdateExpense, adminDeleteExpense,
+  adminListSuppliers, formatPrice, formatDate,
+  type Expense, type Supplier,
+} from "@/lib/admin";
+import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
+
+const CATEGORIES = ["Rent", "Utilities", "Salaries", "Marketing", "Office Supplies", "Travel", "Maintenance", "Insurance", "Miscellaneous", "Other"];
+const PAYMENT_METHODS = ["cash", "bank_transfer", "cheque", "card"];
+const CATEGORY_COLORS: Record<string, string> = {
+  Rent: "bg-violet-100 text-violet-700",
+  Utilities: "bg-blue-100 text-blue-700",
+  Salaries: "bg-emerald-100 text-emerald-700",
+  Marketing: "bg-orange-100 text-orange-700",
+  "Office Supplies": "bg-cyan-100 text-cyan-700",
+  Travel: "bg-amber-100 text-amber-700",
+  Maintenance: "bg-slate-100 text-slate-700",
+  Insurance: "bg-indigo-100 text-indigo-700",
+  Miscellaneous: "bg-pink-100 text-pink-700",
+  Other: "bg-ink-100 text-ink-600",
+};
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function monthStartISO() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1).toISOString().slice(0, 10); }
+
+type Form = { category: string; amount: string; description: string; date: string; supplierId: string; supplierName: string; paymentMethod: string; notes: string };
+const emptyForm = (): Form => ({ category: "Other", amount: "", description: "", date: todayISO(), supplierId: "", supplierName: "", paymentMethod: "cash", notes: "" });
+
+export default function AdminExpenses() {
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [from, setFrom] = useState(monthStartISO());
+  const [to, setTo] = useState(todayISO());
+  const [catFilter, setCatFilter] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState<Expense | null>(null);
+  const [form, setForm] = useState<Form>(emptyForm());
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([adminListExpenses(), adminListSuppliers()]).then(([e, s]) => { setExpenses(e); setSuppliers(s); }).finally(() => setLoading(false));
+  }, []);
+
+  function openCreate() { setEditItem(null); setForm(emptyForm()); setErr(null); setShowForm(true); }
+  function openEdit(e: Expense) {
+    setEditItem(e);
+    setForm({ category: e.category, amount: String(e.amount), description: e.description || "", date: e.date, supplierId: e.supplierId || "", supplierName: e.supplierName || "", paymentMethod: e.paymentMethod || "cash", notes: e.notes || "" });
+    setErr(null);
+    setShowForm(true);
+  }
+
+  async function handleSave() {
+    setErr(null);
+    if (!form.amount || Number(form.amount) <= 0) { setErr("Amount must be positive"); return; }
+    if (!form.date) { setErr("Date is required"); return; }
+    setSaving(true);
+    try {
+      const payload = { ...form, amount: Number(form.amount) };
+      if (editItem) {
+        const updated = await adminUpdateExpense(editItem.id, payload);
+        setExpenses((prev) => prev.map((x) => x.id === editItem.id ? updated : x));
+      } else {
+        const created = await adminCreateExpense(payload);
+        setExpenses((prev) => [created, ...prev]);
+      }
+      setShowForm(false);
+    } catch (e: unknown) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(e: Expense) {
+    if (!confirm("Delete this expense?")) return;
+    await adminDeleteExpense(e.id);
+    setExpenses((prev) => prev.filter((x) => x.id !== e.id));
+  }
+
+  if (loading) return <PageShell><Loading /></PageShell>;
+
+  const filtered = expenses.filter((e) => {
+    if (from && e.date < from) return false;
+    if (to && e.date > to) return false;
+    if (catFilter && e.category !== catFilter) return false;
+    return true;
+  });
+  const totalFiltered = filtered.reduce((s, e) => s + e.amount, 0);
+
+  const byCategory: Record<string, number> = {};
+  filtered.forEach((e) => { byCategory[e.category] = (byCategory[e.category] || 0) + e.amount; });
+  const topCategories = Object.entries(byCategory).sort(([, a], [, b]) => b - a).slice(0, 5);
+
+  return (
+    <PageShell>
+      <PageHeader title="Expenses" subtitle="Track and manage business expenses"
+        actions={<Btn onClick={openCreate}><Plus className="h-4 w-4" />Add Expense</Btn>} />
+
+      {/* Summary */}
+      <div className="mb-6 grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-red-400"><TrendingDown className="h-3.5 w-3.5" />Period Total</div>
+          <div className="mt-2 font-display text-3xl font-bold text-red-600">{formatPrice(totalFiltered)}</div>
+        </div>
+        <div className="rounded-2xl border border-ink-100 bg-white p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Transactions</div>
+          <div className="mt-2 font-display text-3xl font-bold text-ink-900">{filtered.length}</div>
+        </div>
+        <div className="rounded-2xl border border-ink-100 bg-white p-5">
+          <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Top Category</div>
+          <div className="mt-2 font-display text-xl font-bold text-ink-900">{topCategories[0]?.[0] ?? "—"}</div>
+          {topCategories[0] && <div className="text-sm text-ink-500">{formatPrice(topCategories[0][1])}</div>}
+        </div>
+      </div>
+
+      {/* Category breakdown */}
+      {topCategories.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-ink-100 bg-white p-5 shadow-sm">
+          <div className="mb-3 text-sm font-semibold text-ink-900">By Category</div>
+          <div className="space-y-2">
+            {topCategories.map(([cat, amt]) => {
+              const pct = totalFiltered > 0 ? (amt / totalFiltered) * 100 : 0;
+              return (
+                <div key={cat} className="flex items-center gap-3">
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold w-28 text-center ${CATEGORY_COLORS[cat] ?? "bg-ink-100 text-ink-600"}`}>{cat}</span>
+                  <div className="flex-1 h-1.5 overflow-hidden rounded-full bg-ink-100">
+                    <div className="h-full rounded-full bg-red-400 transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className="text-xs font-bold text-ink-800 w-24 text-right">{formatPrice(amt)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
+        <Filter className="h-4 w-4 text-ink-400 flex-shrink-0" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-ink-500">From</span>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} max={to}
+            className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+          <span className="text-xs text-ink-500">To</span>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} min={from}
+            className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+        </div>
+        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
+          className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300">
+          <option value="">All Categories</option>
+          {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+        </select>
+      </div>
+
+      {/* Table */}
+      <Card>
+        {filtered.length === 0 ? (
+          <Empty icon={Receipt} title="No expenses found" hint="Add an expense or adjust your filters." />
+        ) : (
+          <div className="divide-y divide-ink-100">
+            {filtered.map((e) => (
+              <div key={e.id} className="flex items-center gap-4 px-5 py-3 hover:bg-ink-50 transition-colors">
+                <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                  <Receipt className="h-4 w-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${CATEGORY_COLORS[e.category] ?? "bg-ink-100 text-ink-600"}`}>{e.category}</span>
+                    {e.description && <span className="text-sm text-ink-700 truncate">{e.description}</span>}
+                  </div>
+                  <div className="text-xs text-ink-400">
+                    {formatDate(e.createdAt)} · {e.paymentMethod?.replace("_", " ")}
+                    {e.supplierName && ` · ${e.supplierName}`}
+                    {e.expenseNumber && <span className="ml-1 font-mono text-ink-300">{e.expenseNumber}</span>}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="font-bold text-red-600">{formatPrice(e.amount)}</div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => openEdit(e)} className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-100 transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => handleDelete(e)} className="rounded-lg p-1.5 text-ink-400 hover:bg-red-50 hover:text-red-600 transition-colors"><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {filtered.length > 0 && (
+          <div className="flex items-center justify-between border-t border-ink-100 px-5 py-3">
+            <span className="text-sm text-ink-500">{filtered.length} record{filtered.length !== 1 ? "s" : ""}</span>
+            <span className="font-bold text-red-600">{formatPrice(totalFiltered)}</span>
+          </div>
+        )}
+      </Card>
+
+      {/* Form Modal */}
+      <Modal open={showForm} onClose={() => setShowForm(false)} title={editItem ? "Edit Expense" : "Add Expense"}
+        footer={<><Btn variant="secondary" onClick={() => setShowForm(false)}>Cancel</Btn><Btn onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Btn></>}>
+        <div className="space-y-4">
+          <ErrorBanner message={err} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Category *">
+              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300">
+                {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="Amount (PKR) *">
+              <input type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0"
+                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+            </Field>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Date *">
+              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+            </Field>
+            <Field label="Payment Method">
+              <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}
+                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300">
+                {PAYMENT_METHODS.map((m) => <option key={m} value={m}>{m.replace("_", " ")}</option>)}
+              </select>
+            </Field>
+          </div>
+          <Field label="Description">
+            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="What was this expense for?"
+              className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+          </Field>
+          <Field label="Supplier (optional)">
+            <select value={form.supplierId} onChange={(e) => {
+              const s = suppliers.find((x) => String(x.id) === e.target.value);
+              setForm({ ...form, supplierId: e.target.value, supplierName: s?.name || "" });
+            }} className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300">
+              <option value="">— No supplier —</option>
+              {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </Field>
+          <Field label="Notes">
+            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2}
+              className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
+          </Field>
+        </div>
+      </Modal>
+    </PageShell>
+  );
+}
