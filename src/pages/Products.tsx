@@ -201,12 +201,12 @@ export default function Products() {
                   key={p.key}
                   className="group flex flex-col overflow-hidden rounded-2xl border border-ink-100 bg-white transition-all hover:-translate-y-1 hover:border-brand-200 hover:shadow-lg"
                 >
-                  <div className="relative flex h-48 items-center justify-center overflow-hidden bg-ink-50 sm:h-52">
+                  <div className="relative flex h-48 items-center justify-center overflow-hidden bg-white sm:h-52">
                     {p.imageUrl ? (
                       <img
                         src={p.imageUrl}
                         alt={p.name}
-                        className="h-full w-full object-contain p-3 transition-transform group-hover:scale-105"
+                        className="h-full w-full object-contain transition-transform group-hover:scale-105"
                         loading="lazy"
                         onError={(e) => {
                           (e.currentTarget as HTMLImageElement).style.display = "none";
