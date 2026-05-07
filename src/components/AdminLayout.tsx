@@ -135,15 +135,12 @@ export default function AdminLayout() {
               <Menu className="h-5 w-5" />
             </button>
             <Link to="/admin" className="flex items-center">
-              <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-9 w-auto" />
+              <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-14 w-auto" />
             </Link>
           </div>
           <div className="flex flex-1 items-center justify-end gap-3">
             <div className="hidden text-right sm:block">
               <div className="text-sm font-semibold text-ink-900">{admin.name || "Admin"}</div>
-              <div className="text-[10px] uppercase tracking-wider text-brand-600">
-                {admin.role.replace("_", " ")}
-              </div>
             </div>
             <button
               onClick={handleLogout}
