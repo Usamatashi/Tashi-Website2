@@ -6,8 +6,8 @@ import {
 import {
   adminListPurchases, adminCreatePurchase, adminUpdatePurchase, adminDeletePurchase,
   adminListPurchaseReturns, adminCreatePurchaseReturn,
-  adminListSuppliers, formatPrice, formatDate,
-  type Purchase, type PurchaseReturn, type Supplier,
+  adminListSuppliers, adminListProducts, formatPrice, formatDate,
+  type Purchase, type PurchaseReturn, type Supplier, type AdminProduct,
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
 
@@ -37,6 +37,7 @@ export default function AdminPurchases() {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [returns, setReturns] = useState<PurchaseReturn[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"purchases" | "returns">("purchases");
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -54,8 +55,8 @@ export default function AdminPurchases() {
   const [paymentInput, setPaymentInput] = useState("");
 
   useEffect(() => {
-    Promise.all([adminListPurchases(), adminListPurchaseReturns(), adminListSuppliers()])
-      .then(([p, r, s]) => { setPurchases(p); setReturns(r); setSuppliers(s); })
+    Promise.all([adminListPurchases(), adminListPurchaseReturns(), adminListSuppliers(), adminListProducts()])
+      .then(([p, r, s, prods]) => { setPurchases(p); setReturns(r); setSuppliers(s); setProducts(prods); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -67,6 +68,24 @@ export default function AdminPurchases() {
 
   function addItem() { setForm((f) => ({ ...f, items: [...f.items, emptyItem()] })); }
   function removeItem(idx: number) { setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) })); }
+
+  function handleProductNameChange(idx: number, val: string) {
+    const match = products.find((p) => p.name.toLowerCase() === val.toLowerCase());
+    if (match) {
+      setForm((f) => {
+        const items = [...f.items];
+        items[idx] = {
+          ...items[idx],
+          productName: match.name,
+          sku: match.productNumber || "",
+          unitCost: match.salesPrice ? String(match.salesPrice) : items[idx].unitCost,
+        };
+        return { ...f, items };
+      });
+    } else {
+      updateItem(idx, "productName", val);
+    }
+  }
 
   const formTotal = form.items.reduce((s, i) => s + (Number(i.qty) || 0) * (Number(i.unitCost) || 0), 0);
 
@@ -358,11 +377,19 @@ export default function AdminPurchases() {
               <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">Items</span>
               <button type="button" onClick={addItem} className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-brand-600 hover:bg-brand-50 transition-colors"><Plus className="h-3 w-3" />Add Item</button>
             </div>
+            <datalist id="purchase-products">
+              {products.map((p) => <option key={p.id} value={p.name} />)}
+            </datalist>
             <div className="space-y-2">
               {form.items.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-12 gap-2 items-center">
-                  <input placeholder="Product name" value={item.productName} onChange={(e) => updateItem(idx, "productName", e.target.value)}
-                    className="col-span-5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
+                  <input
+                    list="purchase-products"
+                    placeholder="Product name"
+                    value={item.productName}
+                    onChange={(e) => handleProductNameChange(idx, e.target.value)}
+                    className="col-span-5 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  />
                   <input placeholder="SKU" value={item.sku} onChange={(e) => updateItem(idx, "sku", e.target.value)}
                     className="col-span-2 rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
                   <input type="number" placeholder="Qty" value={item.qty} onChange={(e) => updateItem(idx, "qty", e.target.value)} min="1"
