@@ -43,60 +43,60 @@ export default function AdminLogin() {
 
   if (checking) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
+      <div className="flex min-h-screen items-center justify-center bg-[#0f172a]">
         <Loader2 className="h-7 w-7 animate-spin text-brand-500" />
       </div>
     );
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0a0a] px-4 py-12">
-      {/* Background blobs */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-brand-600/20 blur-[120px]" />
-        <div className="absolute -bottom-40 -right-40 h-[500px] w-[500px] rounded-full bg-brand-800/25 blur-[100px]" />
-        <div className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-500/10 blur-[80px]" />
+    <div className="relative flex min-h-screen overflow-hidden">
+      {/* Left panel — navy */}
+      <div className="hidden w-1/2 flex-col items-center justify-center bg-[#0f172a] px-12 lg:flex">
+        <div className="max-w-sm text-center">
+          <img src="/tashi-logo-transparent.png" alt="Tashi" className="mx-auto mb-8 h-24 w-auto drop-shadow-2xl" />
+          <h2 className="text-3xl font-bold text-white">Tashi Brakes</h2>
+          <p className="mt-3 text-base leading-relaxed text-slate-400">
+            Manage your inventory, orders, sales team, and operations from one powerful dashboard.
+          </p>
+          <div className="mt-10 flex justify-center gap-8 text-center">
+            {[["Orders", "Live"], ["Team", "Managed"], ["POS", "Integrated"]].map(([label, sub]) => (
+              <div key={label}>
+                <div className="text-lg font-bold text-brand-500">{label}</div>
+                <div className="text-xs text-slate-500">{sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Grid overlay */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.03]"
-        style={{
-          backgroundImage: "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-        }}
-      />
+      {/* Right panel — white */}
+      <div className="flex w-full flex-col items-center justify-center bg-white px-6 py-12 lg:w-1/2">
+        <Link
+          to="/"
+          className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 lg:left-auto lg:right-8 lg:top-6"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to site
+        </Link>
 
-      {/* Back link */}
-      <Link
-        to="/"
-        className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white/70 backdrop-blur transition hover:border-white/20 hover:bg-white/10 hover:text-white sm:left-6 sm:top-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to site
-      </Link>
-
-      <div className="relative w-full max-w-md">
-        {/* Logo + heading */}
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/10 bg-white/5 shadow-xl shadow-brand-500/10 backdrop-blur">
-            <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-12 w-auto drop-shadow-lg" />
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="mb-8 flex flex-col items-center lg:hidden">
+            <img src="/tashi-logo-transparent.png" alt="Tashi" className="h-16 w-auto" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Admin Portal</h1>
-          <p className="mt-1.5 text-sm text-white/40">Secure access to Tashi Brakes management</p>
-        </div>
 
-        {/* Card */}
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl shadow-black/50 backdrop-blur-xl">
-          <form onSubmit={onSubmit} className="space-y-5">
+          <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
+          <p className="mt-1 text-sm text-slate-500">Sign in to your admin account to continue</p>
 
+          <form onSubmit={onSubmit} className="mt-8 space-y-5">
             {/* Phone */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-widest text-white/50">
+              <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                 Phone Number
               </label>
               <div className="relative">
-                <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="tel"
                   required
@@ -104,18 +104,18 @@ export default function AdminLogin() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="03XX XXXXXXX"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-4 text-sm text-white placeholder-white/20 outline-none transition focus:border-brand-500/60 focus:bg-white/8 focus:ring-2 focus:ring-brand-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
                 />
               </div>
             </div>
 
             {/* Password */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-widest text-white/50">
+              <label className="text-xs font-semibold uppercase tracking-widest text-slate-500">
                 Password
               </label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/30" />
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? "text" : "password"}
                   required
@@ -123,12 +123,12 @@ export default function AdminLogin() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Your app password"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-11 text-sm text-white placeholder-white/20 outline-none transition focus:border-brand-500/60 focus:bg-white/8 focus:ring-2 focus:ring-brand-500/20"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-11 text-sm text-slate-900 placeholder-slate-400 outline-none transition focus:border-brand-500 focus:bg-white focus:ring-2 focus:ring-brand-500/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/30 transition hover:text-white/60"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-600"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -138,7 +138,7 @@ export default function AdminLogin() {
 
             {/* Error */}
             {error && (
-              <div className="flex items-start gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+              <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
                 <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
@@ -148,28 +148,20 @@ export default function AdminLogin() {
             <button
               type="submit"
               disabled={submitting}
-              className="group relative mt-2 inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/30 transition hover:bg-brand-600 hover:shadow-brand-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition hover:bg-brand-600 hover:shadow-brand-500/35 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
               {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Signing in…
-                </>
+                <><Loader2 className="h-4 w-4 animate-spin" />Signing in…</>
               ) : (
-                <>
-                  <Lock className="h-4 w-4" />
-                  Sign in
-                </>
+                <><Lock className="h-4 w-4" />Sign in</>
               )}
             </button>
           </form>
-        </div>
 
-        {/* Footer note */}
-        <p className="mt-5 text-center text-xs text-white/25">
-          Administration use only. Unauthorised access is strictly prohibited.
-        </p>
+          <p className="mt-6 text-center text-xs text-slate-400">
+            Administration use only. Unauthorised access is strictly prohibited.
+          </p>
+        </div>
       </div>
     </div>
   );
