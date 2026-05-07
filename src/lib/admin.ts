@@ -409,6 +409,31 @@ export async function adminGetPOSSaleStats() {
   return handle<POSSaleStats>(await apiFetch("/api/admin/pos/sales/stats", j()));
 }
 
+// ── POS Returns ───────────────────────────────────────────────────────────
+export type POSReturnItem = {
+  productId: number; productName: string; sku: string;
+  qty: number; unitPrice: number; discountPct: number; lineTotal: number;
+};
+export type POSReturn = {
+  id: string; returnNumber: string;
+  saleId: string; saleNumber: string | null;
+  customerId: string | null; customerName: string;
+  items: POSReturnItem[];
+  totalRefund: number;
+  reason: string | null;
+  paymentMethod: string;
+  createdAt: string | null;
+};
+export async function adminListPOSReturns(limit = 50) {
+  return handle<POSReturn[]>(await apiFetch(`/api/admin/pos/returns?limit=${limit}`, j()));
+}
+export async function adminCreatePOSReturn(body: {
+  saleId: string; saleNumber: string | null; customerId: string | null; customerName: string;
+  items: POSReturnItem[]; totalRefund: number; reason: string | null; paymentMethod: string;
+}) {
+  return handle<POSReturn>(await apiFetch("/api/admin/pos/returns", json(body)));
+}
+
 // ── POS Customers ─────────────────────────────────────────────────────────
 export type POSCustomerType = "mechanic" | "retailer" | "consumer";
 export type POSCustomer = {

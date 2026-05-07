@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Package, ShoppingBag, Receipt, CircleDollarSign, BarChart3,
   QrCode, Megaphone, Type, Users, MapPin, MessageCircle, ShieldCheck, LogOut, Loader2,
-  Menu, X, MonitorSmartphone, Layers, UserSquare2, ClipboardList,
+  Menu, X, MonitorSmartphone, Layers, UserSquare2, ClipboardList, RotateCcw,
 } from "lucide-react";
 import {
   adminLogout, adminMe, adminMyPermissions,
@@ -45,6 +45,7 @@ const NAV: NavSection[] = [
     items: [
       { to: "/admin/pos", icon: MonitorSmartphone, label: "POS Terminal" },
       { to: "/admin/stock", icon: Layers, label: "Stock" },
+      { to: "/admin/pos-returns", icon: RotateCcw, label: "Sales Returns" },
     ],
   },
   {
