@@ -11,12 +11,8 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
     },
-    conditions: ["import", "module", "browser", "default"],
   },
   root: path.resolve(import.meta.dirname),
-  optimizeDeps: {
-    include: ["recharts"],
-  },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
