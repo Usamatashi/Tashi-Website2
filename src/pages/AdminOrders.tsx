@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, Package, Globe, Smartphone } from "lucide-react";
+import { Search, Package, Globe, Smartphone, Truck, XCircle, Printer, AlertCircle, Loader2 } from "lucide-react";
 import {
-  adminListOrders, adminListWholesaleOrders,
+  adminListOrders, adminListWholesaleOrders, adminUpdateOrderStatus,
   formatDate, formatPrice, STATUS_META,
   type AdminOrder, type WholesaleOrder,
 } from "@/lib/admin";
@@ -12,12 +12,12 @@ import { cn } from "@/lib/utils";
 type OrderFilter = "pending" | "delivered" | "cancelled";
 
 const ORDER_FILTERS: { value: OrderFilter; label: string }[] = [
-  { value: "pending",   label: "Pending" },
+  { value: "pending",   label: "Active" },
   { value: "delivered", label: "Delivered" },
   { value: "cancelled", label: "Cancelled" },
 ];
 
-const RETAIL_PENDING   = ["pending", "confirmed", "shipped"];
+const RETAIL_PENDING    = ["pending", "confirmed", "shipped"];
 const WHOLESALE_PENDING = ["pending", "confirmed"];
 
 type Tab = "retail" | "wholesale";
@@ -29,11 +29,11 @@ export default function AdminOrders() {
     <PageShell>
       <PageHeader
         title="Orders"
-        subtitle="Retail orders come from the website. Wholesale orders come from the mobile app."
+        subtitle="Retail orders from the website · Wholesale orders from the mobile app"
       />
 
       <div className="mb-5 flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm w-fit mx-auto">
-        <TabBtn active={tab === "retail"} onClick={() => setTab("retail")} icon={Globe}>Retail</TabBtn>
+        <TabBtn active={tab === "retail"}    onClick={() => setTab("retail")}    icon={Globe}>Retail</TabBtn>
         <TabBtn active={tab === "wholesale"} onClick={() => setTab("wholesale")} icon={Smartphone}>Wholesale</TabBtn>
       </div>
 
@@ -61,27 +61,50 @@ function TabBtn({
 
 // ── Retail (website) ───────────────────────────────────────────────────────
 function RetailSection() {
-  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [orders, setOrders]   = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<OrderFilter>("pending");
-  const [query, setQuery] = useState("");
+  const [error, setError]     = useState<string | null>(null);
+  const [filter, setFilter]   = useState<OrderFilter>("pending");
+  const [query, setQuery]     = useState("");
+  const [actioning, setActioning] = useState<string | null>(null);
+  const actioningRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     (async () => {
       try {
         const data = await adminListOrders();
         if (!cancelled) setOrders(data.orders);
-      } catch (err) { console.error(err); }
-      finally { if (!cancelled) setLoading(false); }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load orders");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, []);
 
+  async function quickAction(orderId: string, status: "shipped" | "cancelled") {
+    if (actioningRef.current) return;
+    if (status === "cancelled" && !window.confirm("Cancel this order?")) return;
+    actioningRef.current = orderId + status;
+    setActioning(orderId + status);
+    try {
+      const updated = await adminUpdateOrderStatus(orderId, status);
+      setOrders((prev) => prev.map((o) => o.id === orderId ? updated : o));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      actioningRef.current = null;
+      setActioning(null);
+    }
+  }
+
   const filtered = useMemo(() => {
     let result = orders;
-    if (filter === "pending")   result = result.filter((o) => RETAIL_PENDING.includes(o.status));
+    if (filter === "pending")        result = result.filter((o) => RETAIL_PENDING.includes(o.status));
     else if (filter === "delivered") result = result.filter((o) => o.status === "delivered");
     else if (filter === "cancelled") result = result.filter((o) => o.status === "cancelled");
     const q = query.trim().toLowerCase();
@@ -104,8 +127,15 @@ function RetailSection() {
         count={filtered.length}
       />
 
+      {error && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {loading ? <Loading /> : filtered.length === 0 ? (
-        <Empty icon={Package} title="No retail orders" hint="Try a different filter or search term." />
+        <Empty icon={Package} title="No retail orders" hint="Try a different filter or search term. New website orders appear here." />
       ) : (
         <Card className="overflow-hidden">
           <table className="w-full text-sm">
@@ -117,29 +147,79 @@ function RetailSection() {
                 <th className="hidden px-4 py-3 text-left md:table-cell">Placed</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
-              {filtered.map((o) => (
-                <tr key={o.id} className="hover:bg-ink-50/60">
-                  <td className="px-4 py-3">
-                    <Link to={`/admin/orders/${o.id}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">
-                      #{o.id.slice(0, 8).toUpperCase()}
-                    </Link>
-                    <div className="mt-0.5 text-[10px] text-ink-400">
-                      {o.items.length} item{o.items.length === 1 ? "" : "s"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-ink-900">{o.customer.name || "—"}</div>
-                    <div className="text-xs text-ink-500">{o.customer.phone}</div>
-                  </td>
-                  <td className="hidden px-4 py-3 text-ink-600 lg:table-cell">{o.delivery.city || "—"}</td>
-                  <td className="hidden px-4 py-3 text-ink-500 md:table-cell">{formatDate(o.createdAt)}</td>
-                  <td className="px-4 py-3"><StatusPill status={o.status} /></td>
-                  <td className="px-4 py-3 text-right font-semibold text-ink-900">{formatPrice(o.total)}</td>
-                </tr>
-              ))}
+              {filtered.map((o) => {
+                const canDispatch = o.status === "pending" || o.status === "confirmed";
+                const canCancel   = o.status !== "cancelled" && o.status !== "delivered";
+                const isActioning = (k: string) => actioning === o.id + k;
+                return (
+                  <tr key={o.id} className="hover:bg-ink-50/60">
+                    <td className="px-4 py-3">
+                      <Link to={`/admin/orders/${o.id}`} className="font-mono text-xs font-semibold text-brand-700 hover:underline">
+                        #{o.id.slice(0, 8).toUpperCase()}
+                      </Link>
+                      <div className="mt-0.5 text-[10px] text-ink-400">
+                        {o.items.length} item{o.items.length === 1 ? "" : "s"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-ink-900">{o.customer.name || "—"}</div>
+                      <div className="text-xs text-ink-500">{o.customer.phone}</div>
+                    </td>
+                    <td className="hidden px-4 py-3 text-ink-600 lg:table-cell">{o.delivery.city || "—"}</td>
+                    <td className="hidden px-4 py-3 text-ink-500 md:table-cell">{formatDate(o.createdAt)}</td>
+                    <td className="px-4 py-3"><StatusPill status={o.status} /></td>
+                    <td className="px-4 py-3 text-right font-semibold text-ink-900">{formatPrice(o.total)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Print bill */}
+                        <Link
+                          to={`/admin/print-order/${o.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Print Bill"
+                          className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-orange-50 hover:text-orange-600"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                        </Link>
+                        {/* Dispatch */}
+                        {canDispatch && (
+                          <button
+                            title="Dispatch Order"
+                            onClick={() => quickAction(o.id, "shipped")}
+                            disabled={actioning !== null}
+                            className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+                          >
+                            {isActioning("shipped") ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Truck className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
+                        {/* Cancel */}
+                        {canCancel && (
+                          <button
+                            title="Cancel Order"
+                            onClick={() => quickAction(o.id, "cancelled")}
+                            disabled={actioning !== null}
+                            className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {isActioning("cancelled") ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <XCircle className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Card>
@@ -150,20 +230,25 @@ function RetailSection() {
 
 // ── Wholesale (mobile app) ─────────────────────────────────────────────────
 function WholesaleSection() {
-  const [orders, setOrders] = useState<WholesaleOrder[]>([]);
+  const [orders, setOrders]   = useState<WholesaleOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<OrderFilter>("pending");
-  const [query, setQuery] = useState("");
+  const [error, setError]     = useState<string | null>(null);
+  const [filter, setFilter]   = useState<OrderFilter>("pending");
+  const [query, setQuery]     = useState("");
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
     (async () => {
       try {
         const data = await adminListWholesaleOrders();
         if (!cancelled) setOrders(data.orders);
-      } catch (err) { console.error(err); }
-      finally { if (!cancelled) setLoading(false); }
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load wholesale orders");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -192,6 +277,13 @@ function WholesaleSection() {
         placeholder="Search by retailer, salesman, ID"
         count={filtered.length}
       />
+
+      {error && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {loading ? <Loading /> : filtered.length === 0 ? (
         <Empty icon={Smartphone} title="No wholesale orders" hint="Wholesale orders are placed by salesmen in the mobile app." />
@@ -280,10 +372,11 @@ function Toolbar({
 
 function StatusPill({ status }: { status: string }) {
   const meta = STATUS_META[status] ?? STATUS_META.pending;
+  const label = status === "shipped" ? "Dispatched" : meta.label;
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ${meta.tone} ${meta.ring}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-      {meta.label}
+      {label}
     </span>
   );
 }
@@ -291,8 +384,7 @@ function StatusPill({ status }: { status: string }) {
 function WholesalePill({ status }: { status: string }) {
   const tone =
     status === "dispatched" ? "indigo" :
-    status === "confirmed" ? "blue" :
-    status === "cancelled" ? "red" :
-    "amber";
+    status === "confirmed"  ? "blue"   :
+    status === "cancelled"  ? "red"    : "amber";
   return <Pill tone={tone}>{status}</Pill>;
 }

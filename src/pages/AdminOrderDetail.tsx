@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -13,6 +13,7 @@ import {
   MapPin,
   Package,
   AlertCircle,
+  Printer,
 } from "lucide-react";
 import {
   adminGetOrder,
@@ -25,19 +26,20 @@ import {
 } from "@/lib/admin";
 
 const ACTIONS: { status: string; label: string; icon: typeof CheckCircle2; tone: string }[] = [
-  { status: "pending", label: "Mark Pending", icon: Clock, tone: "bg-amber-500 hover:bg-amber-600" },
-  { status: "confirmed", label: "Confirm Order", icon: CheckCircle2, tone: "bg-blue-500 hover:bg-blue-600" },
-  { status: "shipped", label: "Mark Shipped", icon: Truck, tone: "bg-indigo-500 hover:bg-indigo-600" },
-  { status: "delivered", label: "Mark Delivered", icon: PackageCheck, tone: "bg-emerald-500 hover:bg-emerald-600" },
-  { status: "cancelled", label: "Cancel Order", icon: XCircle, tone: "bg-red-500 hover:bg-red-600" },
+  { status: "pending",   label: "Mark Pending",   icon: Clock,         tone: "bg-amber-500 hover:bg-amber-600" },
+  { status: "confirmed", label: "Confirm Order",   icon: CheckCircle2,  tone: "bg-blue-500 hover:bg-blue-600" },
+  { status: "shipped",   label: "Dispatch Order",  icon: Truck,         tone: "bg-indigo-500 hover:bg-indigo-600" },
+  { status: "delivered", label: "Mark Delivered",  icon: PackageCheck,  tone: "bg-emerald-500 hover:bg-emerald-600" },
+  { status: "cancelled", label: "Cancel Order",    icon: XCircle,       tone: "bg-red-500 hover:bg-red-600" },
 ];
 
 export default function AdminOrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
-  const [order, setOrder] = useState<AdminOrder | null>(null);
+  const [order, setOrder]     = useState<AdminOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
+  const updatingRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!orderId) return;
@@ -47,21 +49,19 @@ export default function AdminOrderDetail() {
         const data = await adminGetOrder(orderId);
         if (!cancelled) setOrder(data);
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load order");
-        }
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load order");
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [orderId]);
 
   async function changeStatus(status: string) {
     if (!orderId || !order) return;
-    if (status === "cancelled" && !window.confirm("Cancel this order?")) return;
+    if (updatingRef.current) return;
+    if (status === "cancelled" && !window.confirm("Cancel this order? This cannot be undone.")) return;
+    updatingRef.current = status;
     setUpdating(status);
     setError(null);
     try {
@@ -70,6 +70,7 @@ export default function AdminOrderDetail() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
     } finally {
+      updatingRef.current = null;
       setUpdating(null);
     }
   }
@@ -86,9 +87,7 @@ export default function AdminOrderDetail() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
-        <h1 className="mt-4 font-display text-xl font-bold text-ink-900">
-          Order not found
-        </h1>
+        <h1 className="mt-4 font-display text-xl font-bold text-ink-900">Order not found</h1>
         <p className="mt-2 text-sm text-ink-500">{error}</p>
         <Link
           to="/admin/orders"
@@ -105,15 +104,27 @@ export default function AdminOrderDetail() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <Link
-        to="/admin/orders"
-        className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500 hover:text-brand-600"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to orders
-      </Link>
+      {/* Top nav */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          to="/admin/orders"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-500 hover:text-brand-600"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to orders
+        </Link>
+        <Link
+          to={`/admin/print-order/${orderId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-ink-700 shadow-sm transition-colors hover:bg-ink-50"
+        >
+          <Printer className="h-4 w-4 text-orange-500" />
+          Print Bill
+        </Link>
+      </div>
 
-      <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="font-mono text-xs font-semibold uppercase tracking-widest text-ink-400">
             Order #{order.id.slice(0, 8).toUpperCase()}
@@ -121,13 +132,9 @@ export default function AdminOrderDetail() {
           <h1 className="mt-1 font-display text-2xl font-bold text-ink-900 sm:text-3xl">
             {order.customer.name || "—"}
           </h1>
-          <p className="mt-1 text-sm text-ink-500">
-            Placed {formatDate(order.createdAt)}
-          </p>
+          <p className="mt-1 text-sm text-ink-500">Placed {formatDate(order.createdAt)}</p>
         </div>
-        <span
-          className={`inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-sm font-semibold ring-1 ${statusMeta.tone} ${statusMeta.ring}`}
-        >
+        <span className={`inline-flex items-center gap-1.5 self-start rounded-full px-3 py-1 text-sm font-semibold ring-1 ${statusMeta.tone} ${statusMeta.ring}`}>
           <span className={`h-2 w-2 rounded-full ${statusMeta.dot}`} />
           {statusMeta.label}
         </span>
@@ -140,13 +147,13 @@ export default function AdminOrderDetail() {
         </div>
       )}
 
+      {/* Status actions */}
       <div className="mt-6 rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
-          Update status
-        </h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-500">Update Status</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           {ACTIONS.map((a) => {
             const isCurrent = order.status === a.status;
+            const isUpdating = updating === a.status;
             return (
               <button
                 key={a.status}
@@ -154,52 +161,49 @@ export default function AdminOrderDetail() {
                 onClick={() => changeStatus(a.status)}
                 disabled={isCurrent || updating !== null}
                 className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed ${
-                  isCurrent
-                    ? "bg-ink-300"
-                    : updating === a.status
-                      ? "bg-ink-400"
-                      : a.tone
+                  isCurrent ? "bg-ink-300" : isUpdating ? "bg-ink-400" : a.tone
                 }`}
               >
-                {updating === a.status ? (
+                {isUpdating ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <a.icon className="h-3.5 w-3.5" />
                 )}
-                {isCurrent ? `Currently ${a.label.toLowerCase().replace("mark ", "").replace(" order", "")}` : a.label}
+                {isCurrent
+                  ? `Currently ${a.label.toLowerCase().replace("mark ", "").replace(" order", "")}`
+                  : a.label}
               </button>
             );
           })}
         </div>
+
+        {/* Prominent cancel notice */}
+        {order.status !== "cancelled" && order.status !== "delivered" && (
+          <p className="mt-3 text-xs text-ink-400">
+            To cancel this order, click <span className="font-semibold text-red-600">Cancel Order</span> above.
+          </p>
+        )}
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
+          {/* Items */}
           <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
             <h2 className="font-display text-base font-bold text-ink-900">
               Items ({order.items.length})
             </h2>
             <ul className="mt-4 divide-y divide-ink-100">
               {order.items.map((i) => (
-                <li
-                  key={i.productId}
-                  className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
-                >
+                <li key={i.productId} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
                   <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-ink-50 text-ink-400">
                     <Package className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">
-                      {i.sku}
-                    </div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{i.sku}</div>
                     <div className="font-medium text-ink-900">{i.productName}</div>
-                    <div className="mt-0.5 text-xs text-ink-500">
-                      {i.quantity} × {formatPrice(i.unitPrice)}
-                    </div>
+                    <div className="mt-0.5 text-xs text-ink-500">{i.quantity} × {formatPrice(i.unitPrice)}</div>
                   </div>
-                  <div className="font-semibold text-ink-900">
-                    {formatPrice(i.lineTotal)}
-                  </div>
+                  <div className="font-semibold text-ink-900">{formatPrice(i.lineTotal)}</div>
                 </li>
               ))}
             </ul>
@@ -210,20 +214,14 @@ export default function AdminOrderDetail() {
               <ul className="space-y-2 text-sm text-ink-700">
                 <li className="flex items-start gap-2">
                   <Phone className="mt-0.5 h-4 w-4 text-brand-500" />
-                  <a
-                    href={`tel:${order.customer.phone}`}
-                    className="hover:text-brand-700"
-                  >
+                  <a href={`tel:${order.customer.phone}`} className="hover:text-brand-700">
                     {order.customer.phone}
                   </a>
                 </li>
                 {order.customer.email && (
                   <li className="flex items-start gap-2">
                     <Mail className="mt-0.5 h-4 w-4 text-brand-500" />
-                    <a
-                      href={`mailto:${order.customer.email}`}
-                      className="hover:text-brand-700"
-                    >
+                    <a href={`mailto:${order.customer.email}`} className="hover:text-brand-700">
                       {order.customer.email}
                     </a>
                   </li>
@@ -238,14 +236,10 @@ export default function AdminOrderDetail() {
                   <div>{order.delivery.address}</div>
                   <div>
                     {order.delivery.city}
-                    {order.delivery.postalCode
-                      ? ` — ${order.delivery.postalCode}`
-                      : ""}
+                    {order.delivery.postalCode ? ` — ${order.delivery.postalCode}` : ""}
                   </div>
                   {order.delivery.notes && (
-                    <div className="mt-1 text-xs text-ink-500">
-                      Notes: {order.delivery.notes}
-                    </div>
+                    <div className="mt-1 text-xs text-ink-500">Notes: {order.delivery.notes}</div>
                   )}
                 </div>
               </div>
@@ -253,25 +247,34 @@ export default function AdminOrderDetail() {
           </div>
         </div>
 
+        {/* Summary sidebar */}
         <aside className="h-fit space-y-3 rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
           <h2 className="font-display text-base font-bold text-ink-900">Summary</h2>
           <dl className="space-y-2 text-sm">
             <Row label="Payment">
               <span className="font-medium text-ink-900">
-                {PAYMENT_LABEL[order.payment.method || ""] ??
-                  order.payment.method ??
-                  "—"}
+                {PAYMENT_LABEL[order.payment.method || ""] ?? order.payment.method ?? "—"}
               </span>
             </Row>
             <Row label="Subtotal">{formatPrice(order.subtotal)}</Row>
             <div className="my-2 border-t border-ink-100" />
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold text-ink-900">Total</span>
-              <span className="font-display text-2xl font-bold text-ink-900">
-                {formatPrice(order.total)}
-              </span>
+              <span className="font-display text-2xl font-bold text-ink-900">{formatPrice(order.total)}</span>
             </div>
           </dl>
+
+          <div className="pt-2">
+            <Link
+              to={`/admin/print-order/${orderId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+            >
+              <Printer className="h-4 w-4" />
+              Print Invoice
+            </Link>
+          </div>
         </aside>
       </div>
     </div>
@@ -281,9 +284,7 @@ export default function AdminOrderDetail() {
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
-      <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500">
-        {title}
-      </h3>
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-ink-500">{title}</h3>
       <div className="mt-3">{children}</div>
     </div>
   );

@@ -44,6 +44,7 @@ const AdminChartOfAccounts = lazy(() => import("@/pages/AdminChartOfAccounts"));
 const AdminJournals = lazy(() => import("@/pages/AdminJournals"));
 const AdminCashBook = lazy(() => import("@/pages/AdminCashBook"));
 const AdminFinancialReports = lazy(() => import("@/pages/AdminFinancialReports"));
+const AdminOrderPrint = lazy(() => import("@/pages/AdminOrderPrint"));
 
 function PageLoader() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
         <Routes>
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/print-labels" element={<AdminPrintLabels />} />
+          <Route path="/admin/print-order/:orderId" element={<AdminOrderPrint />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="orders" element={<AdminOrders />} />
