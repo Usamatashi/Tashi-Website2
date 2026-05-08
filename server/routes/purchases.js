@@ -51,6 +51,47 @@ router.post("/", async (req, res) => {
       createdAt: new Date(),
     };
     await db.collection("purchases").doc(String(id)).set(doc);
+
+    // Update pos_stock for each purchased item
+    for (const item of cleanItems) {
+      if (!item.qty || item.qty <= 0) continue;
+      const stockCol = db.collection("pos_stock");
+
+      // Try to find existing stock entry by SKU first, then by productName
+      let existingSnap = null;
+      if (item.sku) {
+        const bySku = await stockCol.where("sku", "==", item.sku).limit(1).get();
+        if (!bySku.empty) existingSnap = bySku.docs[0];
+      }
+      if (!existingSnap) {
+        const byName = await stockCol.where("productName", "==", item.productName).limit(1).get();
+        if (!byName.empty) existingSnap = byName.docs[0];
+      }
+
+      if (existingSnap) {
+        // Increment quantity on existing stock entry
+        const current = existingSnap.data().quantity || 0;
+        const updates = { quantity: current + item.qty, updatedAt: new Date() };
+        if (item.unitCost) updates.costPrice = item.unitCost;
+        await existingSnap.ref.update(updates);
+      } else {
+        // Create a new stock entry
+        const stockId = await nextId("pos_stock");
+        const stockProductId = await nextId("pos_stock_product");
+        await stockCol.doc(String(stockId)).set({
+          id: stockId,
+          productId: stockProductId,
+          productName: item.productName,
+          sku: item.sku || null,
+          quantity: item.qty,
+          minQuantity: 5,
+          costPrice: item.unitCost || null,
+          sellingPrice: null,
+          updatedAt: new Date(),
+        });
+      }
+    }
+
     res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -133,6 +174,25 @@ router.post("/returns", async (req, res) => {
 
     // Mark the original purchase as having a return
     await purchaseRef.update({ hasReturn: true });
+
+    // Decrement pos_stock for each returned item
+    for (const item of cleanItems) {
+      if (!item.qty || item.qty <= 0) continue;
+      const stockCol = db.collection("pos_stock");
+      let existingSnap = null;
+      if (item.sku) {
+        const bySku = await stockCol.where("sku", "==", item.sku).limit(1).get();
+        if (!bySku.empty) existingSnap = bySku.docs[0];
+      }
+      if (!existingSnap) {
+        const byName = await stockCol.where("productName", "==", item.productName).limit(1).get();
+        if (!byName.empty) existingSnap = byName.docs[0];
+      }
+      if (existingSnap) {
+        const current = existingSnap.data().quantity || 0;
+        await existingSnap.ref.update({ quantity: Math.max(0, current - item.qty), updatedAt: new Date() });
+      }
+    }
 
     res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
   } catch (err) { res.status(500).json({ error: err.message }); }
