@@ -386,6 +386,11 @@ export async function adminAdjustStock(id: string, adjustment: number, reason?: 
 export async function adminDeleteStock(id: string) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/pos/stock/${id}`, { method: "DELETE", credentials: "include" }));
 }
+export async function adminSyncStockFromPurchases() {
+  return handle<{ ok: true; created: number; updated: number }>(
+    await apiFetch("/api/admin/pos/stock/sync-from-purchases", { method: "POST", credentials: "include" })
+  );
+}
 
 // ── POS Sales ─────────────────────────────────────────────────────────────
 export type POSSaleItem = {

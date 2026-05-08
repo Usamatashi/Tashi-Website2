@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, AlertTriangle, TrendingUp, TrendingDown, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, AlertTriangle, TrendingUp, RefreshCw, Package } from "lucide-react";
 import {
   adminListProducts, adminListStock, adminCreateStock, adminUpdateStock,
-  adminAdjustStock, adminDeleteStock,
+  adminAdjustStock, adminDeleteStock, adminSyncStockFromPurchases,
   formatPrice, formatDate,
   type AdminProduct, type StockItem,
 } from "@/lib/admin";
@@ -14,6 +14,7 @@ export default function AdminStock() {
   const [loading, setLoading]     = useState(true);
   const [err, setErr]             = useState<string | null>(null);
 
+  const [syncing, setSyncing]     = useState(false);
   const [showAdd, setShowAdd]     = useState(false);
   const [showEdit, setShowEdit]   = useState(false);
   const [showAdjust, setShowAdjust] = useState(false);
@@ -32,6 +33,17 @@ export default function AdminStock() {
       setProducts(prods);
       setStock(stk);
     } finally { setLoading(false); }
+  }
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      const result = await adminSyncStockFromPurchases();
+      await load();
+      alert(`Sync complete: ${result.created} new entries created, ${result.updated} updated.`);
+    } catch (e: unknown) {
+      alert((e as Error).message || "Sync failed");
+    } finally { setSyncing(false); }
   }
 
   useEffect(() => { load(); }, []);
@@ -111,7 +123,15 @@ export default function AdminStock() {
       <PageHeader
         title="Stock Management"
         subtitle={`${stock.length} products tracked · ${lowStock.length} low stock`}
-        actions={<Btn onClick={openAdd}><Plus className="h-4 w-4" /> Add Product</Btn>}
+        actions={
+          <div className="flex gap-2">
+            <Btn variant="secondary" onClick={handleSync} disabled={syncing}>
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync from Purchases"}
+            </Btn>
+            <Btn onClick={openAdd}><Plus className="h-4 w-4" /> Add Product</Btn>
+          </div>
+        }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">

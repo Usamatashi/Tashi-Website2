@@ -80,4 +80,81 @@ router.delete("/:id", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Sync stock from all existing purchases (backfill)
+router.post("/sync-from-purchases", async (req, res) => {
+  try {
+    const purchasesSnap = await db.collection("purchases").get();
+    const returnsSnap = await db.collection("purchase_returns").get();
+
+    // Build a net qty map keyed by productName (lowercased) and sku
+    const netMap = new Map(); // key -> { productName, sku, qty, unitCost }
+
+    for (const doc of purchasesSnap.docs) {
+      const data = doc.data();
+      for (const item of (data.items || [])) {
+        const key = item.sku ? `sku:${item.sku}` : `name:${(item.productName || "").toLowerCase()}`;
+        const existing = netMap.get(key) || { productName: item.productName, sku: item.sku || null, qty: 0, unitCost: item.unitCost || 0 };
+        existing.qty += Number(item.qty) || 0;
+        existing.unitCost = item.unitCost || existing.unitCost;
+        netMap.set(key, existing);
+      }
+    }
+
+    for (const doc of returnsSnap.docs) {
+      const data = doc.data();
+      for (const item of (data.items || [])) {
+        const key = item.sku ? `sku:${item.sku}` : `name:${(item.productName || "").toLowerCase()}`;
+        const existing = netMap.get(key);
+        if (existing) {
+          existing.qty = Math.max(0, existing.qty - (Number(item.qty) || 0));
+          netMap.set(key, existing);
+        }
+      }
+    }
+
+    const stockCol = db.collection("pos_stock");
+    let created = 0;
+    let updated = 0;
+
+    for (const [, entry] of netMap) {
+      if (!entry.productName || entry.qty <= 0) continue;
+
+      // Try to find existing stock entry
+      let existingSnap = null;
+      if (entry.sku) {
+        const bySku = await stockCol.where("sku", "==", entry.sku).limit(1).get();
+        if (!bySku.empty) existingSnap = bySku.docs[0];
+      }
+      if (!existingSnap) {
+        const byName = await stockCol.where("productName", "==", entry.productName).limit(1).get();
+        if (!byName.empty) existingSnap = byName.docs[0];
+      }
+
+      if (existingSnap) {
+        const updates = { quantity: entry.qty, updatedAt: new Date() };
+        if (entry.unitCost) updates.costPrice = entry.unitCost;
+        await existingSnap.ref.update(updates);
+        updated++;
+      } else {
+        const stockId = await nextId("pos_stock");
+        const stockProductId = await nextId("pos_stock_product");
+        await stockCol.doc(String(stockId)).set({
+          id: stockId,
+          productId: stockProductId,
+          productName: entry.productName,
+          sku: entry.sku || null,
+          quantity: entry.qty,
+          minQuantity: 5,
+          costPrice: entry.unitCost || null,
+          sellingPrice: null,
+          updatedAt: new Date(),
+        });
+        created++;
+      }
+    }
+
+    res.json({ ok: true, created, updated });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 export default router;
