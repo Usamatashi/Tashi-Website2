@@ -28,6 +28,10 @@ import careersRouter from "./routes/careers.js";
 import suppliersRouter from "./routes/suppliers.js";
 import expensesRouter from "./routes/expenses.js";
 import purchasesRouter from "./routes/purchases.js";
+import accountsRouter from "./routes/accounts.js";
+import journalsRouter from "./routes/journals.js";
+import cashBookRouter from "./routes/cash-book.js";
+import financialReportsRouter from "./routes/financial-reports.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -95,6 +99,10 @@ app.use("/api/careers", careersRouter);
 app.use("/api/admin/suppliers", suppliersRouter);
 app.use("/api/admin/expenses", expensesRouter);
 app.use("/api/admin/purchases", purchasesRouter);
+app.use("/api/admin/accounts", accountsRouter);
+app.use("/api/admin/journals", journalsRouter);
+app.use("/api/admin/cash-book", cashBookRouter);
+app.use("/api/admin/financial-reports", financialReportsRouter);
 
 const isProd = process.env.NODE_ENV === "production";
 

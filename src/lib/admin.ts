@@ -627,6 +627,115 @@ export async function adminCreatePurchaseReturn(body: { purchaseId: string; purc
   return handle<PurchaseReturn>(await apiFetch("/api/admin/purchases/returns", json(body)));
 }
 
+// ── Chart of Accounts ─────────────────────────────────────────────────────
+export type Account = {
+  id: string; code: string; name: string;
+  type: "asset" | "liability" | "equity" | "revenue" | "expense";
+  subtype: string; parentId: string | null;
+  description: string; isActive: boolean; createdAt: string | null;
+};
+export async function adminListAccounts() {
+  return handle<Account[]>(await apiFetch("/api/admin/accounts", j()));
+}
+export async function adminSeedAccounts() {
+  return handle<{ message: string; count: number; accounts?: Account[] }>(await apiFetch("/api/admin/accounts/seed", json({})));
+}
+export async function adminCreateAccount(body: Partial<Account>) {
+  return handle<Account>(await apiFetch("/api/admin/accounts", json(body)));
+}
+export async function adminUpdateAccount(id: string, body: Partial<Account>) {
+  return handle<Account>(await apiFetch(`/api/admin/accounts/${id}`, json(body, "PUT")));
+}
+export async function adminDeleteAccount(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/accounts/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
+// ── Journal Entries ───────────────────────────────────────────────────────
+export type JournalLine = {
+  accountId: string; accountCode: string; accountName: string;
+  debit: number; credit: number; description: string;
+};
+export type JournalEntry = {
+  id: string; reference: string; date: string; description: string;
+  lines: JournalLine[]; totalDebit: number; totalCredit: number;
+  status: "draft" | "posted" | "void";
+  createdAt: string | null; postedAt: string | null; voidedAt: string | null;
+  voidReason: string | null;
+};
+export async function adminListJournals(params: { from?: string; to?: string; status?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  if (params.status) q.set("status", params.status);
+  return handle<JournalEntry[]>(await apiFetch(`/api/admin/journals?${q}`, j()));
+}
+export async function adminCreateJournal(body: { date: string; description?: string; reference?: string; lines: Partial<JournalLine>[] }) {
+  return handle<JournalEntry>(await apiFetch("/api/admin/journals", json(body)));
+}
+export async function adminUpdateJournal(id: string, body: Partial<{ date: string; description: string; reference: string; lines: Partial<JournalLine>[] }>) {
+  return handle<JournalEntry>(await apiFetch(`/api/admin/journals/${id}`, json(body, "PUT")));
+}
+export async function adminPostJournal(id: string) {
+  return handle<JournalEntry>(await apiFetch(`/api/admin/journals/${id}/post`, json({},"PUT")));
+}
+export async function adminVoidJournal(id: string, reason?: string) {
+  return handle<JournalEntry>(await apiFetch(`/api/admin/journals/${id}/void`, json({ reason }, "PUT")));
+}
+export async function adminDeleteJournal(id: string) {
+  return handle<{ success: true }>(await apiFetch(`/api/admin/journals/${id}`, { method: "DELETE", credentials: "include" }));
+}
+
+// ── Cash Book ─────────────────────────────────────────────────────────────
+export type CashBookEntry = {
+  date: string; type: "receipt" | "payment"; source: string;
+  ref: string; description: string; receipt: number; payment: number;
+  balance: number; paymentMethod: string; sourceId: string;
+};
+export async function adminGetCashBook(params: { from?: string; to?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  return handle<{ entries: CashBookEntry[]; summary: { totalReceipts: number; totalPayments: number; netBalance: number } }>(
+    await apiFetch(`/api/admin/cash-book?${q}`, j()),
+  );
+}
+
+// ── Financial Reports ─────────────────────────────────────────────────────
+export type PLReport = {
+  period: { from: string; to: string };
+  revenue: { posRevenue: number; wsRevenue: number; grossRevenue: number; salesReturns: number; netRevenue: number; journalRevenue: number };
+  cogs: { purchases: number; purchaseReturns: number; netCOGS: number };
+  grossProfit: number;
+  expenses: { byCategory: Record<string, number>; total: number; journalExpenses: number; totalOpEx: number };
+  netProfit: number;
+};
+export type BalanceSheet = {
+  asOf: string;
+  assets: { current: { cash: number; accountsReceivable: number; inventory: number; total: number }; total: number };
+  liabilities: { current: { accountsPayable: number; creditExpenses: number; total: number }; total: number };
+  equity: { retainedEarnings: number; total: number };
+  checkBalance: boolean;
+};
+export type TrialBalance = {
+  asOf: string;
+  rows: { id: string; code: string; name: string; type: string; debit: number; credit: number }[];
+  totalDebit: number; totalCredit: number; balanced: boolean;
+};
+export async function adminGetPL(params: { from?: string; to?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  return handle<PLReport>(await apiFetch(`/api/admin/financial-reports/pl?${q}`, j()));
+}
+export async function adminGetBalanceSheet(date?: string) {
+  const q = date ? `?date=${date}` : "";
+  return handle<BalanceSheet>(await apiFetch(`/api/admin/financial-reports/balance-sheet${q}`, j()));
+}
+export async function adminGetTrialBalance(date?: string) {
+  const q = date ? `?date=${date}` : "";
+  return handle<TrialBalance>(await apiFetch(`/api/admin/financial-reports/trial-balance${q}`, j()));
+}
+
 // ── Constants & helpers ──────────────────────────────────────────────────
 export const STATUS_META: Record<string, { label: string; tone: string; ring: string; dot: string }> = {
   pending: { label: "Pending", tone: "bg-amber-50 text-amber-800", ring: "ring-amber-200", dot: "bg-amber-500" },

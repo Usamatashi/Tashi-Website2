@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Package, ShoppingBag, Receipt, CircleDollarSign, BarChart3,
   QrCode, Megaphone, Type, Users, MapPin, MessageCircle, ShieldCheck, LogOut, Loader2,
   Menu, X, MonitorSmartphone, Layers, UserSquare2, ClipboardList, RotateCcw,
-  Briefcase, Truck, TrendingDown, ShoppingCart,
+  Briefcase, Truck, TrendingDown, ShoppingCart, BookOpen, BookMarked, Wallet, FileBarChart,
 } from "lucide-react";
 import {
   adminLogout, adminMe, adminMyPermissions,
@@ -55,6 +55,10 @@ const NAV: NavSection[] = [
       { to: "/admin/suppliers", icon: Truck, label: "Suppliers" },
       { to: "/admin/expenses", icon: TrendingDown, label: "Expenses" },
       { to: "/admin/purchases", icon: ShoppingCart, label: "Purchases" },
+      { to: "/admin/chart-of-accounts", icon: BookOpen, label: "Chart of Accounts" },
+      { to: "/admin/journals", icon: BookMarked, label: "Journal Entries" },
+      { to: "/admin/cash-book", icon: Wallet, label: "Cash Book" },
+      { to: "/admin/financial-reports", icon: FileBarChart, label: "Financial Reports" },
     ],
   },
   {

@@ -40,6 +40,10 @@ const AdminCareers = lazy(() => import("@/pages/AdminCareers"));
 const AdminSuppliers = lazy(() => import("@/pages/AdminSuppliers"));
 const AdminExpenses = lazy(() => import("@/pages/AdminExpenses"));
 const AdminPurchases = lazy(() => import("@/pages/AdminPurchases"));
+const AdminChartOfAccounts = lazy(() => import("@/pages/AdminChartOfAccounts"));
+const AdminJournals = lazy(() => import("@/pages/AdminJournals"));
+const AdminCashBook = lazy(() => import("@/pages/AdminCashBook"));
+const AdminFinancialReports = lazy(() => import("@/pages/AdminFinancialReports"));
 
 function PageLoader() {
   return (
@@ -86,6 +90,10 @@ export default function App() {
             <Route path="suppliers" element={<AdminSuppliers />} />
             <Route path="expenses" element={<AdminExpenses />} />
             <Route path="purchases" element={<AdminPurchases />} />
+            <Route path="chart-of-accounts" element={<AdminChartOfAccounts />} />
+            <Route path="journals" element={<AdminJournals />} />
+            <Route path="cash-book" element={<AdminCashBook />} />
+            <Route path="financial-reports" element={<AdminFinancialReports />} />
           </Route>
         </Routes>
       </Suspense>
