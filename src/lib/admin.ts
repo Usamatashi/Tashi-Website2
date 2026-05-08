@@ -492,6 +492,55 @@ export async function adminCreatePOSReturn(body: {
   return handle<POSReturn>(await apiFetch("/api/admin/pos/returns", json(body)));
 }
 
+// ── Website / Retail Returns ───────────────────────────────────────────────
+export type WebsiteReturnItem = {
+  productId: number | null; productName: string; sku: string;
+  qty: number; unitPrice: number; lineTotal: number;
+};
+export type WebsiteReturn = {
+  id: string; returnNumber: string;
+  orderId: string; orderDocId: string;
+  customerName: string; customerPhone: string | null;
+  items: WebsiteReturnItem[];
+  totalRefund: number;
+  reason: string | null;
+  refundMethod: string;
+  createdAt: string | null;
+};
+export async function adminListWebsiteReturns(limit = 50) {
+  return handle<WebsiteReturn[]>(await apiFetch(`/api/admin/website-returns?limit=${limit}`, j()));
+}
+export async function adminCreateWebsiteReturn(body: {
+  orderId: string; orderDocId: string; customerName: string; customerPhone: string | null;
+  items: WebsiteReturnItem[]; totalRefund: number; reason: string | null; refundMethod: string;
+}) {
+  return handle<WebsiteReturn>(await apiFetch("/api/admin/website-returns", json(body)));
+}
+
+// ── Wholesale Returns ──────────────────────────────────────────────────────
+export type WholesaleReturnItem = {
+  productId: number | null; productName: string; sku: string;
+  qty: number; unitPrice: number; lineTotal: number;
+};
+export type WholesaleReturn = {
+  id: string; returnNumber: string;
+  orderId: string; orderDocId: string;
+  retailerName: string; retailerPhone: string | null; salesmanName: string | null;
+  items: WholesaleReturnItem[];
+  totalRefund: number;
+  reason: string | null;
+  createdAt: string | null;
+};
+export async function adminListWholesaleReturns(limit = 50) {
+  return handle<WholesaleReturn[]>(await apiFetch(`/api/admin/wholesale-returns?limit=${limit}`, j()));
+}
+export async function adminCreateWholesaleReturn(body: {
+  orderId: string; orderDocId: string; retailerName: string; retailerPhone: string | null;
+  salesmanName: string | null; items: WholesaleReturnItem[]; totalRefund: number; reason: string | null;
+}) {
+  return handle<WholesaleReturn>(await apiFetch("/api/admin/wholesale-returns", json(body)));
+}
+
 // ── POS Customers ─────────────────────────────────────────────────────────
 export type POSCustomerType = "mechanic" | "retailer" | "consumer";
 export type POSCustomer = {
