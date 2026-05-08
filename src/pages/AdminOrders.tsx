@@ -5,7 +5,8 @@ import {
   Truck, XCircle, Printer, AlertCircle, Loader2,
 } from "lucide-react";
 import {
-  adminListOrders, adminListWholesaleOrders, adminUpdateOrderStatus,
+  adminListOrders, adminListWholesaleOrders,
+  adminUpdateOrderStatus, adminUpdateWholesaleOrderStatus,
   formatDate, formatPrice, STATUS_META,
   type AdminOrder, type WholesaleOrder,
 } from "@/lib/admin";
@@ -255,23 +256,35 @@ function WholesaleSection() {
   const [error,   setError]   = useState<string | null>(null);
   const [filter,  setFilter]  = useState<OrderFilter>("pending");
   const [query,   setQuery]   = useState("");
+  const [actioning, setActioning] = useState<string | null>(null);
+  const actioningRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  function reload() {
     setLoading(true);
     setError(null);
-    (async () => {
-      try {
-        const data = await adminListWholesaleOrders();
-        if (!cancelled) setOrders(data.orders);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load wholesale orders");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    adminListWholesaleOrders()
+      .then((data) => setOrders(data.orders))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Failed to load wholesale orders"))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { reload(); }, []);
+
+  async function quickAction(docId: string, status: "dispatched" | "cancelled") {
+    if (actioningRef.current) return;
+    if (status === "cancelled" && !window.confirm("Cancel this order? This cannot be undone.")) return;
+    actioningRef.current = docId + status;
+    setActioning(docId + status);
+    try {
+      await adminUpdateWholesaleOrderStatus(docId, status);
+      setOrders((prev) => prev.map((o) => o.docId === docId ? { ...o, status } : o));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      actioningRef.current = null;
+      setActioning(null);
+    }
+  }
 
   const filtered = useMemo(() => {
     let result = orders;
@@ -322,41 +335,82 @@ function WholesaleSection() {
                 <th className="hidden px-4 py-3 text-left md:table-cell">Placed</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-right">Total</th>
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
-              {filtered.map((o) => (
-                <tr key={o.docId} className="hover:bg-ink-50/60">
-                  <td className="px-4 py-3">
-                    <Link
-                      to={`/admin/orders/wholesale/${o.docId}`}
-                      className="font-mono text-xs font-semibold text-brand-700 hover:underline"
-                    >
-                      #{String(o.id).slice(0, 8)}
-                    </Link>
-                    <div className="mt-0.5 text-[10px] text-ink-400">
-                      {o.itemCount} item{o.itemCount === 1 ? "" : "s"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-ink-900">{o.retailerName || "—"}</div>
-                    <div className="text-xs text-ink-500">{o.retailerPhone || "—"}</div>
-                  </td>
-                  <td className="hidden px-4 py-3 lg:table-cell">
-                    <div className="text-ink-700">{o.salesmanName || "—"}</div>
-                    <div className="text-xs text-ink-500">{o.salesmanPhone || ""}</div>
-                  </td>
-                  <td className="hidden px-4 py-3 text-ink-500 md:table-cell">
-                    {formatDate(o.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <WholesalePill status={o.status} />
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-ink-900">
-                    {formatPrice(o.finalAmount)}
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((o) => {
+                const canDispatch = o.status === "pending" || o.status === "confirmed";
+                const canCancel   = o.status === "pending" || o.status === "confirmed";
+                const isKey = (s: string) => actioning === o.docId + s;
+                return (
+                  <tr key={o.docId} className="hover:bg-ink-50/60">
+                    <td className="px-4 py-3">
+                      <Link
+                        to={`/admin/orders/wholesale/${o.docId}`}
+                        className="font-mono text-xs font-semibold text-brand-700 hover:underline"
+                      >
+                        #{String(o.id).slice(0, 8)}
+                      </Link>
+                      <div className="mt-0.5 text-[10px] text-ink-400">
+                        {o.itemCount} item{o.itemCount === 1 ? "" : "s"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-ink-900">{o.retailerName || "—"}</div>
+                      <div className="text-xs text-ink-500">{o.retailerPhone || "—"}</div>
+                    </td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      <div className="text-ink-700">{o.salesmanName || "—"}</div>
+                      <div className="text-xs text-ink-500">{o.salesmanPhone || ""}</div>
+                    </td>
+                    <td className="hidden px-4 py-3 text-ink-500 md:table-cell">
+                      {formatDate(o.createdAt)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <WholesalePill status={o.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-ink-900">
+                      {formatPrice(o.finalAmount)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {canDispatch && (
+                          <button
+                            title="Dispatch Order"
+                            onClick={() => quickAction(o.docId, "dispatched")}
+                            disabled={actioning !== null}
+                            className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 disabled:opacity-50"
+                          >
+                            {isKey("dispatched") ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Truck className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
+                        {canCancel && (
+                          <button
+                            title="Cancel Order"
+                            onClick={() => quickAction(o.docId, "cancelled")}
+                            disabled={actioning !== null}
+                            className="rounded-md p-1.5 text-ink-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          >
+                            {isKey("cancelled") ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <XCircle className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
+                        {!canDispatch && !canCancel && (
+                          <span className="text-[10px] text-ink-400 italic">—</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </Card>
