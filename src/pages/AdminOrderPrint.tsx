@@ -48,10 +48,8 @@ export default function AdminOrderPrint() {
   const statusLabel = order.status.charAt(0).toUpperCase() + order.status.slice(1);
 
   const statusColor =
-    order.status === "delivered" ? "bg-emerald-100 text-emerald-700" :
-    order.status === "cancelled" ? "bg-red-100 text-red-700" :
-    order.status === "shipped" ? "bg-indigo-100 text-indigo-700" :
-    order.status === "confirmed" ? "bg-blue-100 text-blue-700" :
+    order.status === "dispatched" ? "bg-indigo-100 text-indigo-700" :
+    order.status === "cancelled"  ? "bg-red-100 text-red-700"     :
     "bg-amber-100 text-amber-700";
 
   return (

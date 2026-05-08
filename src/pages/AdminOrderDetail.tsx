@@ -1,44 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  CheckCircle2,
-  Truck,
-  PackageCheck,
-  XCircle,
-  Clock,
-  Loader2,
-  Phone,
-  Mail,
-  MapPin,
-  Package,
-  AlertCircle,
-  Printer,
+  ArrowLeft, Truck, XCircle, Clock,
+  Loader2, Phone, Mail, MapPin, Package,
+  AlertCircle, Printer,
 } from "lucide-react";
 import {
-  adminGetOrder,
-  adminUpdateOrderStatus,
-  formatDate,
-  formatPrice,
-  PAYMENT_LABEL,
-  STATUS_META,
+  adminGetOrder, adminUpdateOrderStatus,
+  formatDate, formatPrice, PAYMENT_LABEL, STATUS_META,
   type AdminOrder,
 } from "@/lib/admin";
 
-const ACTIONS: { status: string; label: string; icon: typeof CheckCircle2; tone: string }[] = [
-  { status: "pending",   label: "Mark Pending",   icon: Clock,         tone: "bg-amber-500 hover:bg-amber-600" },
-  { status: "confirmed", label: "Confirm Order",   icon: CheckCircle2,  tone: "bg-blue-500 hover:bg-blue-600" },
-  { status: "shipped",   label: "Dispatch Order",  icon: Truck,         tone: "bg-indigo-500 hover:bg-indigo-600" },
-  { status: "delivered", label: "Mark Delivered",  icon: PackageCheck,  tone: "bg-emerald-500 hover:bg-emerald-600" },
-  { status: "cancelled", label: "Cancel Order",    icon: XCircle,       tone: "bg-red-500 hover:bg-red-600" },
+// Three-step retail order workflow: pending → dispatched → cancelled
+const ACTIONS: { status: string; label: string; icon: typeof Truck; tone: string }[] = [
+  { status: "pending",    label: "Reset to Pending", icon: Clock,    tone: "bg-amber-500 hover:bg-amber-600"   },
+  { status: "dispatched", label: "Dispatch Order",   icon: Truck,    tone: "bg-indigo-500 hover:bg-indigo-600" },
+  { status: "cancelled",  label: "Cancel Order",     icon: XCircle,  tone: "bg-red-500 hover:bg-red-600"       },
 ];
 
 export default function AdminOrderDetail() {
   const { orderId } = useParams<{ orderId: string }>();
-  const [order, setOrder]     = useState<AdminOrder | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [order,    setOrder]    = useState<AdminOrder | null>(null);
+  const [loading,  setLoading]  = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
-  const [error, setError]     = useState<string | null>(null);
+  const [error,    setError]    = useState<string | null>(null);
   const updatingRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -104,7 +89,8 @@ export default function AdminOrderDetail() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Top nav */}
+
+      {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           to="/admin/orders"
@@ -124,10 +110,11 @@ export default function AdminOrderDetail() {
         </Link>
       </div>
 
+      {/* Heading */}
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="font-mono text-xs font-semibold uppercase tracking-widest text-ink-400">
-            Order #{order.id.slice(0, 8).toUpperCase()}
+            Retail Order #{order.id.slice(0, 8).toUpperCase()}
           </div>
           <h1 className="mt-1 font-display text-2xl font-bold text-ink-900 sm:text-3xl">
             {order.customer.name || "—"}
@@ -147,46 +134,81 @@ export default function AdminOrderDetail() {
         </div>
       )}
 
-      {/* Status actions */}
+      {/* Workflow: Pending → Dispatched → Cancelled */}
       <div className="mt-6 rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-500">Update Status</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-ink-500">Process Order</h2>
+
+        {/* Visual pipeline */}
+        <div className="mt-4 flex items-center gap-0">
+          <StepBubble
+            label="Pending"
+            active={order.status === "pending"}
+            done={order.status === "dispatched"}
+            colour="amber"
+          />
+          <div className={`h-0.5 flex-1 ${order.status === "dispatched" ? "bg-indigo-400" : "bg-ink-200"}`} />
+          <StepBubble
+            label="Dispatched"
+            active={order.status === "dispatched"}
+            done={false}
+            colour="indigo"
+          />
+          <div className={`h-0.5 flex-1 ${order.status === "cancelled" ? "bg-red-300" : "bg-ink-200"}`} />
+          <StepBubble
+            label="Cancelled"
+            active={order.status === "cancelled"}
+            done={false}
+            colour="red"
+          />
+        </div>
+
+        {/* Action buttons */}
+        <div className="mt-5 flex flex-wrap gap-2">
           {ACTIONS.map((a) => {
             const isCurrent = order.status === a.status;
             const isUpdating = updating === a.status;
+            // Hide "Reset to Pending" if already pending or if dispatched (can't go back in normal flow)
+            if (a.status === "pending" && order.status === "pending") return null;
+            // Hide dispatch if already dispatched or cancelled
+            if (a.status === "dispatched" && (order.status === "dispatched" || order.status === "cancelled")) return null;
+            // Hide cancel if already cancelled or dispatched
+            if (a.status === "cancelled" && (order.status === "cancelled" || order.status === "dispatched")) return null;
             return (
               <button
                 key={a.status}
                 type="button"
                 onClick={() => changeStatus(a.status)}
                 disabled={isCurrent || updating !== null}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed ${
+                className={`inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all disabled:cursor-not-allowed ${
                   isCurrent ? "bg-ink-300" : isUpdating ? "bg-ink-400" : a.tone
                 }`}
               >
                 {isUpdating ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <a.icon className="h-3.5 w-3.5" />
+                  <a.icon className="h-4 w-4" />
                 )}
-                {isCurrent
-                  ? `Currently ${a.label.toLowerCase().replace("mark ", "").replace(" order", "")}`
-                  : a.label}
+                {a.label}
               </button>
             );
           })}
-        </div>
 
-        {/* Prominent cancel notice */}
-        {order.status !== "cancelled" && order.status !== "delivered" && (
-          <p className="mt-3 text-xs text-ink-400">
-            To cancel this order, click <span className="font-semibold text-red-600">Cancel Order</span> above.
-          </p>
-        )}
+          {order.status === "dispatched" && (
+            <p className="self-center text-sm font-medium text-indigo-600">
+              Order has been dispatched.
+            </p>
+          )}
+          {order.status === "cancelled" && (
+            <p className="self-center text-sm font-medium text-red-600">
+              Order has been cancelled.
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-6">
+
           {/* Items */}
           <div className="rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
             <h2 className="font-display text-base font-bold text-ink-900">
@@ -199,9 +221,13 @@ export default function AdminOrderDetail() {
                     <Package className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <div className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{i.sku}</div>
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">
+                      {i.sku}
+                    </div>
                     <div className="font-medium text-ink-900">{i.productName}</div>
-                    <div className="mt-0.5 text-xs text-ink-500">{i.quantity} × {formatPrice(i.unitPrice)}</div>
+                    <div className="mt-0.5 text-xs text-ink-500">
+                      {i.quantity} × {formatPrice(i.unitPrice)}
+                    </div>
                   </div>
                   <div className="font-semibold text-ink-900">{formatPrice(i.lineTotal)}</div>
                 </li>
@@ -248,7 +274,7 @@ export default function AdminOrderDetail() {
         </div>
 
         {/* Summary sidebar */}
-        <aside className="h-fit space-y-3 rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
+        <aside className="h-fit space-y-4 rounded-2xl border border-ink-200 bg-white p-6 shadow-sm">
           <h2 className="font-display text-base font-bold text-ink-900">Summary</h2>
           <dl className="space-y-2 text-sm">
             <Row label="Payment">
@@ -260,23 +286,48 @@ export default function AdminOrderDetail() {
             <div className="my-2 border-t border-ink-100" />
             <div className="flex items-baseline justify-between">
               <span className="text-sm font-semibold text-ink-900">Total</span>
-              <span className="font-display text-2xl font-bold text-ink-900">{formatPrice(order.total)}</span>
+              <span className="font-display text-2xl font-bold text-ink-900">
+                {formatPrice(order.total)}
+              </span>
             </div>
           </dl>
 
-          <div className="pt-2">
-            <Link
-              to={`/admin/print-order/${orderId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
-            >
-              <Printer className="h-4 w-4" />
-              Print Invoice
-            </Link>
-          </div>
+          <Link
+            to={`/admin/print-order/${orderId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600"
+          >
+            <Printer className="h-4 w-4" />
+            Print Invoice
+          </Link>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function StepBubble({
+  label, active, done, colour,
+}: { label: string; active: boolean; done: boolean; colour: "amber" | "indigo" | "red" }) {
+  const colours = {
+    amber:  { ring: "border-amber-400",  bg: "bg-amber-500",  text: "text-amber-700"  },
+    indigo: { ring: "border-indigo-400", bg: "bg-indigo-500", text: "text-indigo-700" },
+    red:    { ring: "border-red-400",    bg: "bg-red-500",    text: "text-red-700"    },
+  };
+  const c = colours[colour];
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-bold text-white transition-colors ${
+        active ? `${c.bg} ${c.ring}` :
+        done   ? "bg-emerald-500 border-emerald-400" :
+                 "bg-ink-200 border-ink-200 text-ink-400"
+      }`}>
+        {done ? "✓" : ""}
+      </div>
+      <span className={`text-[10px] font-semibold ${active ? c.text : done ? "text-emerald-600" : "text-ink-400"}`}>
+        {label}
+      </span>
     </div>
   );
 }

@@ -32,9 +32,7 @@ export type AdminOrder = {
 export type AdminStats = {
   total: number;
   pending: number;
-  confirmed: number;
-  shipped: number;
-  delivered: number;
+  dispatched: number;
   cancelled: number;
   revenue: number;
 };
@@ -743,13 +741,15 @@ export async function adminGetTrialBalance(date?: string) {
 
 // ── Constants & helpers ──────────────────────────────────────────────────
 export const STATUS_META: Record<string, { label: string; tone: string; ring: string; dot: string }> = {
-  pending: { label: "Pending", tone: "bg-amber-50 text-amber-800", ring: "ring-amber-200", dot: "bg-amber-500" },
-  confirmed: { label: "Confirmed", tone: "bg-blue-50 text-blue-800", ring: "ring-blue-200", dot: "bg-blue-500" },
-  shipped: { label: "Shipped", tone: "bg-indigo-50 text-indigo-800", ring: "ring-indigo-200", dot: "bg-indigo-500" },
-  delivered: { label: "Delivered", tone: "bg-emerald-50 text-emerald-800", ring: "ring-emerald-200", dot: "bg-emerald-500" },
-  cancelled: { label: "Cancelled", tone: "bg-red-50 text-red-800", ring: "ring-red-200", dot: "bg-red-500" },
-  received: { label: "Received", tone: "bg-emerald-50 text-emerald-800", ring: "ring-emerald-200", dot: "bg-emerald-500" },
-  verified: { label: "Verified", tone: "bg-emerald-50 text-emerald-800", ring: "ring-emerald-200", dot: "bg-emerald-500" },
+  pending:    { label: "Pending",    tone: "bg-amber-50 text-amber-800",   ring: "ring-amber-200",   dot: "bg-amber-500"   },
+  dispatched: { label: "Dispatched", tone: "bg-indigo-50 text-indigo-800", ring: "ring-indigo-200",  dot: "bg-indigo-500"  },
+  cancelled:  { label: "Cancelled",  tone: "bg-red-50 text-red-800",       ring: "ring-red-200",     dot: "bg-red-500"     },
+  // legacy / wholesale compat
+  confirmed:  { label: "Confirmed",  tone: "bg-blue-50 text-blue-800",     ring: "ring-blue-200",    dot: "bg-blue-500"    },
+  shipped:    { label: "Dispatched", tone: "bg-indigo-50 text-indigo-800", ring: "ring-indigo-200",  dot: "bg-indigo-500"  },
+  delivered:  { label: "Delivered",  tone: "bg-emerald-50 text-emerald-800", ring: "ring-emerald-200", dot: "bg-emerald-500" },
+  received:   { label: "Received",   tone: "bg-emerald-50 text-emerald-800", ring: "ring-emerald-200", dot: "bg-emerald-500" },
+  verified:   { label: "Verified",   tone: "bg-emerald-50 text-emerald-800", ring: "ring-emerald-200", dot: "bg-emerald-500" },
 };
 export const PAYMENT_LABEL: Record<string, string> = {
   cod: "Cash on Delivery", easypaisa: "Easypaisa", jazzcash: "JazzCash",
