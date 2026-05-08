@@ -86,7 +86,7 @@ router.get("/", async (req, res) => {
         ref: r.returnNumber || `RET-${d.id}`,
         description: `Sales Return — ${r.customerName || ""}`,
         receipt: 0,
-        payment: toNum(r.refundAmount),
+        payment: toNum(r.totalRefund),
         paymentMethod: r.refundMethod || "cash",
         sourceId: d.id,
       });

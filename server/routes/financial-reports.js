@@ -57,7 +57,7 @@ router.get("/pl", async (req, res) => {
     for (const d of posReturnsSnap.docs) {
       const r = d.data();
       const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
-      if (inRange(date, fromDate, toDate)) salesReturns += toNum(r.refundAmount);
+      if (inRange(date, fromDate, toDate)) salesReturns += toNum(r.totalRefund);
     }
 
     // COGS — from purchases (stock bought)
@@ -167,7 +167,7 @@ router.get("/balance-sheet", async (req, res) => {
     for (const d of posReturnsSnap.docs) {
       const r = d.data();
       const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
-      if (date <= asOf) cash -= toNum(r.refundAmount);
+      if (date <= asOf) cash -= toNum(r.totalRefund);
     }
     for (const d of expensesSnap.docs) {
       const e = d.data();
