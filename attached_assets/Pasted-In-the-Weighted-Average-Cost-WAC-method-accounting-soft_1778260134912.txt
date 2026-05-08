@@ -1,0 +1,164 @@
+In the **Weighted Average Cost (WAC)** method, accounting software does **not keep separate prices for old stock and new stock** during valuation.
+Instead, every time new inventory is purchased, the software recalculates an **average cost per unit**.
+
+The stock value mechanism works like this:
+
+---
+
+# 1. Formula of Weighted Average Cost
+
+\text{Weighted Average Cost Per Unit} = \frac{\text{Total Inventory Cost}}{\text{Total Units Available}}
+
+Then:
+
+* **Stock Value = Remaining Quantity × Average Cost**
+* **COGS (Cost of Goods Sold) = Sold Quantity × Average Cost**
+
+---
+
+# 2. Example Step-by-Step
+
+Suppose your inventory starts empty.
+
+---
+
+## Purchase 1
+
+Buy:
+
+* 100 units @ $10
+
+### Inventory
+
+| Qty | Rate | Total |
+| --- | ---- | ----- |
+| 100 | 10   | 1000  |
+
+Average Cost:
+
+\frac{1000}{100}=10
+
+So current average = **$10**
+
+---
+
+## Purchase 2
+
+Buy:
+
+* 50 units @ $14
+
+Now software combines old + new stock.
+
+### Total Inventory
+
+| Qty            | Value             |
+| -------------- | ----------------- |
+| 100 + 50 = 150 | 1000 + 700 = 1700 |
+
+New average:
+
+\frac{1700}{150}=11.33
+
+Now every unit in stock is considered worth **$11.33**
+
+---
+
+# 3. Now a Sale Happens
+
+Sell:
+
+* 60 units
+
+Software uses current average cost:
+
+COGS:
+
+60 \times 11.33 = 679.8
+
+Remaining stock:
+
+| Qty           | Value                 |
+| ------------- | --------------------- |
+| 150 − 60 = 90 | 1700 − 679.8 = 1020.2 |
+
+Average remains approximately:
+
+\frac{1020.2}{90}\approx11.33
+
+---
+
+# 4. Important Mechanism Inside Accounting Software
+
+Most accounting software maintains:
+
+* Total Quantity
+* Total Inventory Value
+* Current Average Cost
+
+When:
+
+### Purchase occurs
+
+Software:
+
+1. Adds quantity
+2. Adds inventory value
+3. Recalculates average
+
+---
+
+### Sale occurs
+
+Software:
+
+1. Reduces quantity
+2. Reduces value using current average
+3. Average usually stays same until next purchase
+
+---
+
+# 5. Difference from FIFO
+
+### FIFO
+
+* Old stock leaves first
+* Keeps separate inventory layers
+
+### Weighted Average
+
+* Mixes all inventory into one average pool
+* Easier computation
+* Smoother profit fluctuations
+
+---
+
+# 6. In Real Accounting Software
+
+Systems like:
+
+* [QuickBooks](https://quickbooks.intuit.com/?utm_source=chatgpt.com)
+* [Odoo](https://www.odoo.com/?utm_source=chatgpt.com)
+* [ERPNext](https://erpnext.com/?utm_source=chatgpt.com)
+* [SAP ERP](https://www.sap.com/?utm_source=chatgpt.com)
+
+usually store:
+
+```text
+item_id
+current_qty
+current_stock_value
+average_rate
+```
+
+And every stock transaction updates these fields automatically.
+
+---
+
+# 7. Key Point
+
+Under WAC:
+
+> Inventory value changes only when purchases happen.
+
+Sales only reduce stock using the existing average rate.

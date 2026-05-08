@@ -69,15 +69,27 @@ router.post("/", async (req, res) => {
       }
 
       if (existingSnap) {
-        // Increment quantity on existing stock entry
-        const current = existingSnap.data().quantity || 0;
-        const updates = { quantity: current + item.qty, updatedAt: new Date() };
-        if (item.unitCost) updates.costPrice = item.unitCost;
-        await existingSnap.ref.update(updates);
+        // WAC: recalculate weighted average cost
+        const data = existingSnap.data();
+        const currentQty = data.quantity || 0;
+        const currentAvgCost = data.averageCost || data.costPrice || 0;
+        const currentTotalValue = data.totalStockValue || currentQty * currentAvgCost;
+        const addCost = item.unitCost || currentAvgCost;
+        const newQty = currentQty + item.qty;
+        const newTotalValue = currentTotalValue + item.qty * addCost;
+        const newAvgCost = newQty > 0 ? newTotalValue / newQty : addCost;
+        await existingSnap.ref.update({
+          quantity: newQty,
+          totalStockValue: newTotalValue,
+          averageCost: newAvgCost,
+          costPrice: newAvgCost,
+          updatedAt: new Date(),
+        });
       } else {
-        // Create a new stock entry
+        // Create a new stock entry with WAC fields
         const stockId = await nextId("pos_stock");
         const stockProductId = await nextId("pos_stock_product");
+        const avgCost = item.unitCost || 0;
         await stockCol.doc(String(stockId)).set({
           id: stockId,
           productId: stockProductId,
@@ -85,7 +97,9 @@ router.post("/", async (req, res) => {
           sku: item.sku || null,
           quantity: item.qty,
           minQuantity: 5,
-          costPrice: item.unitCost || null,
+          costPrice: avgCost || null,
+          averageCost: avgCost || null,
+          totalStockValue: item.qty * avgCost,
           sellingPrice: null,
           updatedAt: new Date(),
         });
@@ -189,8 +203,18 @@ router.post("/returns", async (req, res) => {
         if (!byName.empty) existingSnap = byName.docs[0];
       }
       if (existingSnap) {
-        const current = existingSnap.data().quantity || 0;
-        await existingSnap.ref.update({ quantity: Math.max(0, current - item.qty), updatedAt: new Date() });
+        const data = existingSnap.data();
+        const currentQty = data.quantity || 0;
+        const currentAvgCost = data.averageCost || data.costPrice || 0;
+        const currentTotalValue = data.totalStockValue || currentQty * currentAvgCost;
+        const removeQty = Math.min(item.qty, currentQty);
+        const newQty = currentQty - removeQty;
+        const newTotalValue = Math.max(0, currentTotalValue - removeQty * currentAvgCost);
+        await existingSnap.ref.update({
+          quantity: newQty,
+          totalStockValue: newTotalValue,
+          updatedAt: new Date(),
+        });
       }
     }
 

@@ -5,6 +5,22 @@ import { requireAdmin } from "../lib/auth.js";
 const router = Router();
 router.use(requireAdmin);
 
+// ── WAC helpers ────────────────────────────────────────────────────────────
+function wacAdd(currentQty, currentTotalValue, addQty, addCostPerUnit) {
+  const newQty = currentQty + addQty;
+  const newTotalValue = currentTotalValue + addQty * addCostPerUnit;
+  const newAvgCost = newQty > 0 ? newTotalValue / newQty : 0;
+  return { newQty, newTotalValue, newAvgCost };
+}
+function wacRemove(currentQty, currentTotalValue, currentAvgCost, removeQty) {
+  const actualRemove = Math.min(removeQty, currentQty);
+  const newQty = currentQty - actualRemove;
+  const newTotalValue = Math.max(0, currentTotalValue - actualRemove * currentAvgCost);
+  const newAvgCost = newQty > 0 ? newTotalValue / newQty : currentAvgCost;
+  return { newQty, newTotalValue, newAvgCost };
+}
+
+// ── List all stock ─────────────────────────────────────────────────────────
 router.get("/", async (_req, res) => {
   try {
     const snap = await db.collection("pos_stock").orderBy("productName").get();
@@ -13,6 +29,7 @@ router.get("/", async (_req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Create stock entry ─────────────────────────────────────────────────────
 router.post("/", async (req, res) => {
   try {
     const { productId, productName, sku, quantity, minQuantity, costPrice, sellingPrice } = req.body;
@@ -20,10 +37,15 @@ router.post("/", async (req, res) => {
     const existing = await db.collection("pos_stock").where("productId", "==", Number(productId)).limit(1).get();
     if (!existing.empty) return res.status(400).json({ error: "Stock entry already exists for this product" });
     const id = await nextId("pos_stock");
+    const qty = Number(quantity || 0);
+    const cost = costPrice ? Number(costPrice) : 0;
+    const totalStockValue = qty * cost;
     const item = {
       id, productId: Number(productId), productName, sku: sku || null,
-      quantity: Number(quantity || 0), minQuantity: Number(minQuantity || 5),
-      costPrice: costPrice ? Number(costPrice) : null,
+      quantity: qty, minQuantity: Number(minQuantity || 5),
+      costPrice: cost || null,
+      averageCost: cost || null,
+      totalStockValue,
       sellingPrice: sellingPrice ? Number(sellingPrice) : null,
       updatedAt: new Date(),
     };
@@ -32,16 +54,15 @@ router.post("/", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Update selling price / minQty only ────────────────────────────────────
 router.put("/:id", async (req, res) => {
   try {
     const ref = db.collection("pos_stock").doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: "Stock item not found" });
-    const { quantity, minQuantity, costPrice, sellingPrice } = req.body;
+    const { minQuantity, sellingPrice } = req.body;
     const updates = { updatedAt: new Date() };
-    if (quantity !== undefined) updates.quantity = Number(quantity);
     if (minQuantity !== undefined) updates.minQuantity = Number(minQuantity);
-    if (costPrice !== undefined) updates.costPrice = costPrice ? Number(costPrice) : null;
     if (sellingPrice !== undefined) updates.sellingPrice = sellingPrice ? Number(sellingPrice) : null;
     await ref.update(updates);
     const updated = { ...doc.data(), ...updates };
@@ -49,27 +70,82 @@ router.put("/:id", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Adjust stock quantity (WAC) ─────────────────────────────────────────────
+// body: { qty: number (positive=add, negative=remove), category, reason, costPerUnit? }
 router.post("/:id/adjust", async (req, res) => {
   try {
     const ref = db.collection("pos_stock").doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: "Stock item not found" });
-    const { adjustment, reason } = req.body;
-    if (!adjustment || isNaN(Number(adjustment))) return res.status(400).json({ error: "adjustment is required" });
-    const current = doc.data().quantity || 0;
-    const newQty = Math.max(0, current + Number(adjustment));
-    await ref.update({ quantity: newQty, updatedAt: new Date() });
+    const { qty, category, reason, costPerUnit } = req.body;
+    if (!qty || isNaN(Number(qty))) return res.status(400).json({ error: "qty is required" });
+    const data = doc.data();
+    const currentQty = data.quantity || 0;
+    const currentTotalValue = data.totalStockValue || (currentQty * (data.averageCost || data.costPrice || 0));
+    const currentAvgCost = data.averageCost || data.costPrice || 0;
+    const delta = Number(qty);
+
+    let newQty, newTotalValue, newAvgCost;
+    if (delta > 0) {
+      const addCost = costPerUnit ? Number(costPerUnit) : currentAvgCost;
+      ({ newQty, newTotalValue, newAvgCost } = wacAdd(currentQty, currentTotalValue, delta, addCost));
+    } else {
+      ({ newQty, newTotalValue, newAvgCost } = wacRemove(currentQty, currentTotalValue, currentAvgCost, Math.abs(delta)));
+    }
+
+    const updates = {
+      quantity: newQty,
+      totalStockValue: newTotalValue,
+      averageCost: newAvgCost,
+      costPrice: newAvgCost || data.costPrice,
+      updatedAt: new Date(),
+    };
+    await ref.update(updates);
+
     const histId = await nextId("pos_stock_history");
     await db.collection("pos_stock_history").doc(String(histId)).set({
-      id: histId, stockId: req.params.id, productId: doc.data().productId,
-      productName: doc.data().productName, adjustment: Number(adjustment),
-      quantityBefore: current, quantityAfter: newQty,
-      reason: reason || null, createdBy: req.admin.userId ?? null, createdAt: new Date(),
+      id: histId,
+      stockId: req.params.id,
+      productId: data.productId,
+      productName: data.productName,
+      type: delta > 0 ? "add" : "remove",
+      qty: delta,
+      costPerUnit: delta > 0 ? (costPerUnit ? Number(costPerUnit) : currentAvgCost) : currentAvgCost,
+      avgCostBefore: currentAvgCost,
+      avgCostAfter: newAvgCost,
+      totalValueBefore: currentTotalValue,
+      totalValueAfter: newTotalValue,
+      quantityBefore: currentQty,
+      quantityAfter: newQty,
+      category: category || "other",
+      reason: reason || null,
+      createdBy: req.admin?.userId ?? null,
+      createdAt: new Date(),
     });
-    res.json({ id: doc.id, ...doc.data(), quantity: newQty, updatedAt: toISOString(new Date()) });
+
+    res.json({ id: doc.id, ...data, ...updates, updatedAt: toISOString(updates.updatedAt) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── Stock history for an item ──────────────────────────────────────────────
+router.get("/:id/history", async (req, res) => {
+  try {
+    let snap;
+    try {
+      snap = await db.collection("pos_stock_history")
+        .where("stockId", "==", req.params.id)
+        .orderBy("createdAt", "desc")
+        .get();
+    } catch {
+      snap = await db.collection("pos_stock_history")
+        .where("stockId", "==", req.params.id)
+        .get();
+    }
+    res.json(snap.docs.map((d) => ({ id: d.id, ...d.data(), createdAt: toISOString(d.data().createdAt) })));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ── Delete stock entry ─────────────────────────────────────────────────────
 router.delete("/:id", async (req, res) => {
   try {
     const ref = db.collection("pos_stock").doc(req.params.id);
@@ -80,46 +156,48 @@ router.delete("/:id", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Sync stock from all existing purchases (backfill)
+// ── Sync stock from purchases (WAC) ────────────────────────────────────────
 router.post("/sync-from-purchases", async (req, res) => {
   try {
-    const purchasesSnap = await db.collection("purchases").get();
+    const purchasesSnap = await db.collection("purchases").orderBy("createdAt").get();
     const returnsSnap = await db.collection("purchase_returns").get();
 
-    // Build a net qty map keyed by productName (lowercased) and sku
-    const netMap = new Map(); // key -> { productName, sku, qty, unitCost }
-
-    for (const doc of purchasesSnap.docs) {
-      const data = doc.data();
-      for (const item of (data.items || [])) {
+    // Build map of returns keyed by product
+    const returnsMap = new Map();
+    for (const doc of returnsSnap.docs) {
+      for (const item of (doc.data().items || [])) {
         const key = item.sku ? `sku:${item.sku}` : `name:${(item.productName || "").toLowerCase()}`;
-        const existing = netMap.get(key) || { productName: item.productName, sku: item.sku || null, qty: 0, unitCost: item.unitCost || 0 };
-        existing.qty += Number(item.qty) || 0;
-        existing.unitCost = item.unitCost || existing.unitCost;
-        netMap.set(key, existing);
+        returnsMap.set(key, (returnsMap.get(key) || 0) + (Number(item.qty) || 0));
       }
     }
 
-    for (const doc of returnsSnap.docs) {
-      const data = doc.data();
-      for (const item of (data.items || [])) {
+    // Replay all purchases to build WAC state
+    const wacMap = new Map(); // key -> { productName, sku, qty, totalValue, avgCost }
+    for (const doc of purchasesSnap.docs) {
+      for (const item of (doc.data().items || [])) {
         const key = item.sku ? `sku:${item.sku}` : `name:${(item.productName || "").toLowerCase()}`;
-        const existing = netMap.get(key);
-        if (existing) {
-          existing.qty = Math.max(0, existing.qty - (Number(item.qty) || 0));
-          netMap.set(key, existing);
-        }
+        const existing = wacMap.get(key) || { productName: item.productName, sku: item.sku || null, qty: 0, totalValue: 0, avgCost: 0 };
+        const addQty = Number(item.qty) || 0;
+        const addCost = Number(item.unitCost) || existing.avgCost || 0;
+        const r = wacAdd(existing.qty, existing.totalValue, addQty, addCost);
+        wacMap.set(key, { ...existing, qty: r.newQty, totalValue: r.newTotalValue, avgCost: r.newAvgCost });
+      }
+    }
+
+    // Apply returns
+    for (const [key, retQty] of returnsMap) {
+      const existing = wacMap.get(key);
+      if (existing && retQty > 0) {
+        const r = wacRemove(existing.qty, existing.totalValue, existing.avgCost, retQty);
+        wacMap.set(key, { ...existing, qty: r.newQty, totalValue: r.newTotalValue, avgCost: r.newAvgCost });
       }
     }
 
     const stockCol = db.collection("pos_stock");
-    let created = 0;
-    let updated = 0;
+    let created = 0, updated = 0;
 
-    for (const [, entry] of netMap) {
+    for (const [, entry] of wacMap) {
       if (!entry.productName || entry.qty <= 0) continue;
-
-      // Try to find existing stock entry
       let existingSnap = null;
       if (entry.sku) {
         const bySku = await stockCol.where("sku", "==", entry.sku).limit(1).get();
@@ -129,25 +207,16 @@ router.post("/sync-from-purchases", async (req, res) => {
         const byName = await stockCol.where("productName", "==", entry.productName).limit(1).get();
         if (!byName.empty) existingSnap = byName.docs[0];
       }
-
       if (existingSnap) {
-        const updates = { quantity: entry.qty, updatedAt: new Date() };
-        if (entry.unitCost) updates.costPrice = entry.unitCost;
-        await existingSnap.ref.update(updates);
+        await existingSnap.ref.update({ quantity: entry.qty, totalStockValue: entry.totalValue, averageCost: entry.avgCost, costPrice: entry.avgCost, updatedAt: new Date() });
         updated++;
       } else {
         const stockId = await nextId("pos_stock");
-        const stockProductId = await nextId("pos_stock_product");
         await stockCol.doc(String(stockId)).set({
-          id: stockId,
-          productId: stockProductId,
-          productName: entry.productName,
-          sku: entry.sku || null,
-          quantity: entry.qty,
-          minQuantity: 5,
-          costPrice: entry.unitCost || null,
-          sellingPrice: null,
-          updatedAt: new Date(),
+          id: stockId, productId: stockId, productName: entry.productName, sku: entry.sku || null,
+          quantity: entry.qty, minQuantity: 5,
+          costPrice: entry.avgCost || null, averageCost: entry.avgCost || null,
+          totalStockValue: entry.totalValue, sellingPrice: null, updatedAt: new Date(),
         });
         created++;
       }

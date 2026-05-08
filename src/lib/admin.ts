@@ -369,7 +369,18 @@ export async function adminUpdateWhatsappContacts(c: Partial<WhatsappContacts>) 
 export type StockItem = {
   id: string; productId: number; productName: string; sku: string | null;
   quantity: number; minQuantity: number;
-  costPrice: number | null; sellingPrice: number | null; updatedAt: string | null;
+  costPrice: number | null; averageCost: number | null; totalStockValue: number;
+  sellingPrice: number | null; updatedAt: string | null;
+};
+export type StockHistoryEntry = {
+  id: string; stockId: string; productId: number; productName: string;
+  type: "add" | "remove";
+  qty: number; costPerUnit: number;
+  avgCostBefore: number; avgCostAfter: number;
+  totalValueBefore: number; totalValueAfter: number;
+  quantityBefore: number; quantityAfter: number;
+  category: string; reason: string | null;
+  createdBy: string | null; createdAt: string | null;
 };
 export async function adminListStock() {
   return handle<StockItem[]>(await apiFetch("/api/admin/pos/stock", j()));
@@ -377,11 +388,14 @@ export async function adminListStock() {
 export async function adminCreateStock(body: { productId: number; productName: string; sku?: string; quantity?: number; minQuantity?: number; costPrice?: number; sellingPrice?: number }) {
   return handle<StockItem>(await apiFetch("/api/admin/pos/stock", json(body)));
 }
-export async function adminUpdateStock(id: string, body: Partial<StockItem>) {
+export async function adminUpdateStock(id: string, body: { minQuantity?: number; sellingPrice?: number | null }) {
   return handle<StockItem>(await apiFetch(`/api/admin/pos/stock/${id}`, json(body, "PUT")));
 }
-export async function adminAdjustStock(id: string, adjustment: number, reason?: string) {
-  return handle<StockItem>(await apiFetch(`/api/admin/pos/stock/${id}/adjust`, json({ adjustment, reason })));
+export async function adminAdjustStock(id: string, qty: number, category: string, reason?: string, costPerUnit?: number) {
+  return handle<StockItem>(await apiFetch(`/api/admin/pos/stock/${id}/adjust`, json({ qty, category, reason, costPerUnit })));
+}
+export async function adminGetStockHistory(id: string) {
+  return handle<StockHistoryEntry[]>(await apiFetch(`/api/admin/pos/stock/${id}/history`, j()));
 }
 export async function adminDeleteStock(id: string) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/pos/stock/${id}`, { method: "DELETE", credentials: "include" }));
