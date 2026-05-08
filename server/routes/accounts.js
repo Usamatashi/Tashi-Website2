@@ -102,8 +102,12 @@ router.delete("/:id", async (req, res) => {
     const ref = db.collection("accounts").doc(req.params.id);
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: "Account not found" });
-    const used = await db.collection("journal_lines").where("accountId", "==", req.params.id).limit(1).get();
-    if (!used.empty) return res.status(400).json({ error: "Cannot delete: account has journal entries" });
+    // Check if this account is referenced in any journal entry line
+    const journalSnap = await db.collection("journal_entries").limit(200).get();
+    const inUse = journalSnap.docs.some((d) =>
+      (d.data().lines || []).some((l) => l.accountId === req.params.id)
+    );
+    if (inUse) return res.status(400).json({ error: "Cannot delete: account is used in one or more journal entries" });
     await ref.delete();
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }

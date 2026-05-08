@@ -70,8 +70,8 @@ router.get("/pl", async (req, res) => {
     let purchaseReturns = 0;
     for (const d of purReturnSnap.docs) {
       const r = d.data();
-      const date = r.date ? new Date(r.date) : null;
-      if (inRange(date, fromDate, toDate)) purchaseReturns += toNum(r.amount);
+      const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
+      if (inRange(date, fromDate, toDate)) purchaseReturns += toNum(r.totalReturn);
     }
 
     // Expenses by category

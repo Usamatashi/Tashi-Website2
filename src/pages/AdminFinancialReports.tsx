@@ -4,7 +4,7 @@ import {
   adminGetPL, adminGetBalanceSheet, adminGetTrialBalance,
   formatPrice, type PLReport, type BalanceSheet, type TrialBalance,
 } from "@/lib/admin";
-import { PageHeader, PageShell, Loading, Card } from "@/components/admin/ui";
+import { PageHeader, PageShell, Loading, Card, Btn } from "@/components/admin/ui";
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function yearStartISO() { return `${new Date().getFullYear()}-01-01`; }
@@ -278,11 +278,3 @@ export default function AdminFinancialReports() {
   );
 }
 
-function Btn({ children, onClick, variant, className }: { children: React.ReactNode; onClick?: () => void; variant?: string; className?: string }) {
-  return (
-    <button onClick={onClick}
-      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${variant === "secondary" ? "border border-ink-200 bg-white text-ink-700 hover:bg-ink-50" : "bg-brand-600 text-white hover:bg-brand-700"} ${className || ""}`}>
-      {children}
-    </button>
-  );
-}
