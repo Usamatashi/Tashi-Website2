@@ -142,9 +142,14 @@ export default function AdminFinancialReports() {
                 <SectionRow label="Net Revenue" value={pl.revenue.netRevenue} bold border />
 
                 <Divider label="Cost of Goods Sold" />
-                <SectionRow label="Stock Purchases" value={pl.cogs.purchases} indent={1} />
-                <SectionRow label="Less: Purchase Returns" value={pl.cogs.purchaseReturns} indent={1} negative />
+                <SectionRow label="Cost of Goods Sold (at cost)" value={pl.cogs.costOfGoodsSold} indent={1} />
+                <SectionRow label="Less: Cost of Goods Returned" value={pl.cogs.costOfGoodsReturned} indent={1} negative />
                 <SectionRow label="Net Cost of Goods Sold" value={pl.cogs.netCOGS} bold border />
+                {pl.cogs.purchasesInPeriod > 0 && (
+                  <p className="px-4 pt-1 pb-2 text-xs text-ink-400 italic">
+                    Note: Rs.{pl.cogs.purchasesInPeriod.toLocaleString()} of inventory purchased this period is recognised as an asset (Inventory), not an expense. COGS above reflects only the cost of goods actually sold.
+                  </p>
+                )}
 
                 <Divider label="Gross Profit" />
                 <SectionRow label="Gross Profit" value={pl.grossProfit} bold border />

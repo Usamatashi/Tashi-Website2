@@ -88,14 +88,22 @@ router.post("/generate-monthly", async (req, res) => {
     };
     function expCode(cat) { return EXP_MAP[(cat || "").toLowerCase().trim()] || "5900"; }
 
-    // Fetch all data
-    const [posSnap, retSnap, expSnap, purSnap, purRetSnap] = await Promise.all([
+    // Fetch all data (including stock for COGS cost-price lookup)
+    const [posSnap, retSnap, expSnap, purSnap, purRetSnap, stockSnap] = await Promise.all([
       db.collection("pos_sales").get(),
       db.collection("pos_returns").get(),
       db.collection("expenses").get(),
       db.collection("purchases").get(),
       db.collection("purchase_returns").get(),
+      db.collection("pos_stock").get(),
     ]);
+
+    // Build cost-price map: productId (string) → costPrice
+    const costByProductId = {};
+    stockSnap.forEach((d) => {
+      const s = d.data();
+      if (s.productId != null) costByProductId[String(s.productId)] = toN(s.costPrice || 0);
+    });
 
     function docDate(data) {
       if (data.date) return new Date(data.date);
@@ -122,27 +130,63 @@ router.post("/generate-monthly", async (req, res) => {
       created.push(serializeEntry(id, entry));
     }
 
-    // 1. POS Sales
+    // ── Calculate COGS from actual items sold × cost price (accrual basis) ──
+    let cogsAmt = 0;
+    for (const d of posSnap.docs) {
+      const s = d.data();
+      if (!inRange(docDate(s))) continue;
+      for (const item of (s.items || [])) {
+        const cost = costByProductId[String(item.productId ?? "")] || 0;
+        cogsAmt += toN(item.qty) * cost;
+      }
+    }
+    // Cost of goods returned by customers (restores inventory, reverses COGS)
+    let cogsReturnedAmt = 0;
+    for (const d of retSnap.docs) {
+      const r = d.data();
+      if (!inRange(docDate(r))) continue;
+      for (const item of (r.items || [])) {
+        const cost = costByProductId[String(item.productId ?? "")] || 0;
+        cogsReturnedAmt += toN(item.qty || item.quantity) * cost;
+      }
+    }
+
+    // 1. POS Sales Revenue (accrual: recognised when sale occurs)
     let posTot = 0;
     for (const d of posSnap.docs) { const s = d.data(); if (inRange(docDate(s))) posTot += toN(s.total); }
     if (posTot > 0) {
-      await saveEntry("POS", `POS Sales Summary — ${monthName}`, [
+      await saveEntry("POS", `POS Sales Revenue — ${monthName}`, [
         acct("1000", "Cash received from POS sales", posTot, 0),
         acct("4000", "POS sales revenue recognised",  0, posTot),
       ]);
     }
 
-    // 2. Sales Returns
-    let retTot = 0;
-    for (const d of retSnap.docs) { const r = d.data(); if (inRange(docDate(r))) retTot += toN(r.totalRefund); }
-    if (retTot > 0) {
-      await saveEntry("RET", `Sales Returns Summary — ${monthName}`, [
-        acct("4900", "Sales returns recognised",     retTot, 0),
-        acct("1000", "Cash refunded to customers",   0, retTot),
+    // 2. COGS — cost of goods actually sold (Dr COGS / Cr Inventory)
+    const netCogsAmt = Math.max(0, cogsAmt - cogsReturnedAmt);
+    if (netCogsAmt > 0) {
+      await saveEntry("COGS", `Cost of Goods Sold — ${monthName}`, [
+        acct("5000", "Cost of goods sold in period",       netCogsAmt, 0),
+        acct("1200", "Inventory relieved for goods sold",  0, netCogsAmt),
       ]);
     }
 
-    // 3. Expenses (grouped by category → account, split cash vs credit)
+    // 3. Sales Returns — refund to customer + inventory restoration
+    let retTot = 0;
+    for (const d of retSnap.docs) { const r = d.data(); if (inRange(docDate(r))) retTot += toN(r.totalRefund); }
+    if (retTot > 0) {
+      const retLines = [
+        acct("4900", "Sales returns recognised",    retTot, 0),
+        acct("1000", "Cash refunded to customers",  0, retTot),
+      ];
+      // Restore inventory at cost for returned goods
+      if (cogsReturnedAmt > 0) {
+        retLines.push(acct("1200", "Inventory restored — returned goods",  cogsReturnedAmt, 0));
+        retLines.push(acct("5000", "COGS reversed for returned goods",     0, cogsReturnedAmt));
+      }
+      await saveEntry("RET", `Sales Returns Summary — ${monthName}`, retLines);
+    }
+
+    // 4. Expenses (grouped by category; accrual: recognised when incurred)
     const expByCode = {}; // accountCode -> { acct fields, cash, credit }
     for (const d of expSnap.docs) {
       const e = d.data();
@@ -163,12 +207,13 @@ router.post("/generate-monthly", async (req, res) => {
         totalCash += v.cash;
         totalCreditExp += v.credit;
       }
-      if (totalCash > 0)      lines.push(acct("1000", "Cash paid for expenses",    0, totalCash));
-      if (totalCreditExp > 0) lines.push(acct("2200", "Accrued credit expenses",   0, totalCreditExp));
+      if (totalCash > 0)      lines.push(acct("1000", "Cash paid for expenses",         0, totalCash));
+      if (totalCreditExp > 0) lines.push(acct("2200", "Accrued expenses — credit terms", 0, totalCreditExp));
       await saveEntry("EXP", `Expenses Summary — ${monthName}`, lines);
     }
 
-    // 4. Purchases
+    // 5. Purchases → Dr Inventory (asset), Cr Cash / Accounts Payable
+    //    Purchases build stock; COGS is only recognised when goods are sold (entry #2 above)
     let purCash = 0, purCredit = 0;
     for (const d of purSnap.docs) {
       const p = d.data();
@@ -178,20 +223,20 @@ router.post("/generate-monthly", async (req, res) => {
     }
     if (purCash + purCredit > 0) {
       const purLines = [
-        acct("5000", "Goods purchased for resale", purCash + purCredit, 0),
+        acct("1200", "Inventory received from suppliers", purCash + purCredit, 0),
       ];
-      if (purCash   > 0) purLines.push(acct("1000", "Cash paid to suppliers",   0, purCash));
-      if (purCredit > 0) purLines.push(acct("2000", "Amount owed to suppliers", 0, purCredit));
-      await saveEntry("PUR", `Purchases Summary — ${monthName}`, purLines);
+      if (purCash   > 0) purLines.push(acct("1000", "Cash paid to suppliers",            0, purCash));
+      if (purCredit > 0) purLines.push(acct("2000", "Accounts payable — credit purchases", 0, purCredit));
+      await saveEntry("PUR", `Purchases — Inventory In — ${monthName}`, purLines);
     }
 
-    // 5. Purchase Returns (if any)
+    // 6. Purchase Returns → Dr Cash / AP, Cr Inventory
     let purRetTot = 0;
     for (const d of purRetSnap.docs) { const pr = d.data(); if (inRange(docDate(pr))) purRetTot += toN(pr.totalReturn); }
     if (purRetTot > 0) {
-      await saveEntry("PRET", `Purchase Returns Summary — ${monthName}`, [
-        acct("2000", "Purchase returns — reduces payable", purRetTot, 0),
-        acct("5000", "Cost of goods returned to supplier", 0, purRetTot),
+      await saveEntry("PRET", `Purchase Returns — ${monthName}`, [
+        acct("2000", "Accounts payable reduced — purchase return", purRetTot, 0),
+        acct("1200", "Inventory reduced — goods returned to supplier", 0, purRetTot),
       ]);
     }
 

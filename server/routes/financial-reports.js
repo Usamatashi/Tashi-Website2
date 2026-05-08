@@ -27,7 +27,7 @@ router.get("/pl", async (req, res) => {
     const fromDate = req.query.from ? new Date(req.query.from) : new Date(new Date().getFullYear(), 0, 1);
     const toDate   = req.query.to   ? endOfDay(req.query.to)  : endOfDay(new Date().toISOString().slice(0, 10));
 
-    const [posSalesSnap, ordersSnap, posReturnsSnap, expensesSnap, purchasesSnap, purReturnSnap, journalSnap] = await Promise.all([
+    const [posSalesSnap, ordersSnap, posReturnsSnap, expensesSnap, purchasesSnap, purReturnSnap, journalSnap, stockSnap] = await Promise.all([
       db.collection("pos_sales").get(),
       db.collection("orders").get(),
       db.collection("pos_returns").get(),
@@ -35,6 +35,7 @@ router.get("/pl", async (req, res) => {
       db.collection("purchases").get(),
       db.collection("purchase_returns").get(),
       db.collection("journal_entries").where("status", "==", "posted").get(),
+      db.collection("pos_stock").get(),
     ]);
 
     // Revenue
@@ -60,12 +61,44 @@ router.get("/pl", async (req, res) => {
       if (inRange(date, fromDate, toDate)) salesReturns += toNum(r.totalRefund);
     }
 
-    // COGS — from purchases (stock bought)
+    // Build cost-price lookup from stock: productId → costPrice
+    const costByProductId = {};
+    stockSnap.forEach((d) => {
+      const s = d.data();
+      if (s.productId != null) costByProductId[String(s.productId)] = toNum(s.costPrice || 0);
+    });
+
+    // COGS (accrual basis) — cost of goods ACTUALLY SOLD in the period
+    // Dr COGS / Cr Inventory: recognised when the sale occurs, not when purchased
     let cogs = 0;
+    for (const d of posSalesSnap.docs) {
+      const s = d.data();
+      const date = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt || 0);
+      if (!inRange(date, fromDate, toDate)) continue;
+      for (const item of (s.items || [])) {
+        const cost = costByProductId[String(item.productId ?? "")] || 0;
+        cogs += toNum(item.qty) * cost;
+      }
+    }
+
+    // Cost of goods returned by customers (reverses COGS, restores inventory)
+    let cogsReturned = 0;
+    for (const d of posReturnsSnap.docs) {
+      const r = d.data();
+      const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
+      if (!inRange(date, fromDate, toDate)) continue;
+      for (const item of (r.items || [])) {
+        const cost = costByProductId[String(item.productId ?? "")] || 0;
+        cogsReturned += toNum(item.qty || item.quantity) * cost;
+      }
+    }
+
+    // Purchases add to Inventory (asset) — listed separately for transparency
+    let purchasesInPeriod = 0;
     for (const d of purchasesSnap.docs) {
       const p = d.data();
       const date = p.date ? new Date(p.date) : null;
-      if (inRange(date, fromDate, toDate)) cogs += toNum(p.totalAmount);
+      if (inRange(date, fromDate, toDate)) purchasesInPeriod += toNum(p.totalAmount);
     }
     let purchaseReturns = 0;
     for (const d of purReturnSnap.docs) {
@@ -106,7 +139,8 @@ router.get("/pl", async (req, res) => {
 
     const grossRevenue = posRevenue + wsRevenue;
     const netRevenue   = grossRevenue - salesReturns;
-    const netCOGS      = Math.max(0, cogs - purchaseReturns);
+    // Net COGS = cost of goods sold − cost of goods returned by customers
+    const netCOGS      = Math.max(0, cogs - cogsReturned);
     const grossProfit  = netRevenue - netCOGS;
     const totalOpEx    = totalExpenses + Math.max(0, journalExpenses);
     const netProfit    = grossProfit - totalOpEx + journalRevenue;
@@ -122,9 +156,12 @@ router.get("/pl", async (req, res) => {
         journalRevenue,
       },
       cogs: {
-        purchases: cogs,
-        purchaseReturns,
+        costOfGoodsSold: cogs,
+        costOfGoodsReturned: cogsReturned,
         netCOGS,
+        // Purchases in period shown separately (they go to Inventory, not COGS directly)
+        purchasesInPeriod,
+        purchaseReturns,
       },
       grossProfit,
       expenses: {
