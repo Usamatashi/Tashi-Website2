@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, admin } from "../lib/firebase.js";
+import { db, admin, chunkArray } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
 import { sanitizeStr, toNumber } from "../lib/helpers.js";
 
@@ -204,7 +204,6 @@ router.get("/admin/website-stats", requireAdmin, async (_req, res) => {
 
 router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
   try {
-    const { chunkArray } = await import("../lib/firebase.js");
     const now        = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
