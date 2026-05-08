@@ -684,6 +684,11 @@ export async function adminVoidJournal(id: string, reason?: string) {
 export async function adminDeleteJournal(id: string) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/journals/${id}`, { method: "DELETE", credentials: "include" }));
 }
+export async function adminGenerateMonthlyJournals(year: number, month: number) {
+  return handle<{ message: string; monthLabel: string; monthName: string; entries: JournalEntry[] }>(
+    await apiFetch("/api/admin/journals/generate-monthly", json({ year, month })),
+  );
+}
 
 // ── Cash Book ─────────────────────────────────────────────────────────────
 export type CashBookEntry = {

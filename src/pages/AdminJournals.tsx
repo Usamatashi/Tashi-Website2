@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Check, XCircle, ChevronDown, ChevronRight, BookOpen, AlertTriangle } from "lucide-react";
+import { Plus, Edit2, Trash2, Check, XCircle, ChevronDown, ChevronRight, BookOpen, AlertTriangle, Sparkles } from "lucide-react";
 import {
   adminListJournals, adminCreateJournal, adminUpdateJournal, adminPostJournal, adminVoidJournal,
-  adminDeleteJournal, adminListAccounts, formatPrice, formatDate,
+  adminDeleteJournal, adminListAccounts, adminGenerateMonthlyJournals, formatPrice, formatDate,
   type JournalEntry, type JournalLine, type Account,
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
@@ -32,6 +32,13 @@ export default function AdminJournals() {
 
   const [voidTarget, setVoidTarget] = useState<JournalEntry | null>(null);
   const [voidReason, setVoidReason] = useState("");
+
+  const [showMonthly, setShowMonthly] = useState(false);
+  const [monthlyYear, setMonthlyYear]   = useState(() => new Date().getFullYear());
+  const [monthlyMonth, setMonthlyMonth] = useState(() => new Date().getMonth() + 1);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+  const [monthlyResult, setMonthlyResult]   = useState<string | null>(null);
+  const [monthlyErr, setMonthlyErr]         = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -121,6 +128,16 @@ export default function AdminJournals() {
     } catch (e: unknown) { alert((e as Error).message); }
   }
 
+  async function handleGenerateMonthly() {
+    setMonthlyLoading(true); setMonthlyErr(null); setMonthlyResult(null);
+    try {
+      const res = await adminGenerateMonthlyJournals(monthlyYear, monthlyMonth);
+      setMonthlyResult(res.message);
+      setEntries((p) => [...res.entries, ...p]);
+    } catch (e: unknown) { setMonthlyErr((e as Error).message); }
+    finally { setMonthlyLoading(false); }
+  }
+
   const filtered = statusFilter === "all" ? entries : entries.filter((e) => e.status === statusFilter);
 
   if (loading) return <PageShell><Loading /></PageShell>;
@@ -128,7 +145,14 @@ export default function AdminJournals() {
   return (
     <PageShell>
       <PageHeader title="Journal Entries" subtitle="Double-entry bookkeeping — all postings"
-        actions={<Btn onClick={openNew}><Plus className="h-4 w-4" />New Entry</Btn>} />
+        actions={
+          <div className="flex gap-2">
+            <Btn variant="secondary" onClick={() => { setShowMonthly(true); setMonthlyResult(null); setMonthlyErr(null); }}>
+              <Sparkles className="h-4 w-4" />Monthly Summary
+            </Btn>
+            <Btn onClick={openNew}><Plus className="h-4 w-4" />New Entry</Btn>
+          </div>
+        } />
 
       {/* Stats */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
@@ -348,6 +372,62 @@ export default function AdminJournals() {
           <textarea className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             rows={2} value={voidReason} onChange={(e) => setVoidReason(e.target.value)} placeholder="Reason for voiding…" />
         </Field>
+      </Modal>
+
+      {/* Monthly Summary Modal */}
+      <Modal open={showMonthly} onClose={() => setShowMonthly(false)} title="Generate Monthly Journal Summary"
+        footer={
+          monthlyResult
+            ? <Btn onClick={() => setShowMonthly(false)}>Done</Btn>
+            : <>
+                <Btn variant="secondary" onClick={() => setShowMonthly(false)}>Cancel</Btn>
+                <Btn onClick={handleGenerateMonthly} disabled={monthlyLoading}>
+                  <Sparkles className="h-4 w-4" />{monthlyLoading ? "Generating…" : "Generate"}
+                </Btn>
+              </>
+        }>
+        <div className="space-y-4">
+          <p className="text-sm text-ink-500">
+            Creates up to 5 summarised draft journal entries for the selected month — one each for POS Sales,
+            Sales Returns, Expenses, Purchases, and Purchase Returns. Each entry is saved as a <strong>draft</strong> so
+            you can review and post when ready.
+          </p>
+          {monthlyResult ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold text-emerald-700">✓ {monthlyResult}</p>
+              <p className="mt-1 text-xs text-emerald-600">The new draft entries are now visible in the list above.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Year">
+                <select className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  value={monthlyYear} onChange={(e) => setMonthlyYear(Number(e.target.value))}>
+                  {Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Month">
+                <select className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+                  value={monthlyMonth} onChange={(e) => setMonthlyMonth(Number(e.target.value))}>
+                  {["January","February","March","April","May","June","July","August","September","October","November","December"]
+                    .map((name, i) => <option key={i + 1} value={i + 1}>{name}</option>)}
+                </select>
+              </Field>
+            </div>
+          )}
+          {monthlyErr && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm font-semibold text-red-600"><AlertTriangle className="inline h-4 w-4 mr-1" />{monthlyErr}</p>
+            </div>
+          )}
+          {!monthlyResult && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-700">
+              <strong>Note:</strong> If a summary already exists for this month, the system will block duplication.
+              Void the existing entries first before regenerating.
+            </div>
+          )}
+        </div>
       </Modal>
     </PageShell>
   );
