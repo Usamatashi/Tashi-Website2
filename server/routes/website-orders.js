@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, admin, chunkArray } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
 import { sanitizeStr, toNumber } from "../lib/helpers.js";
+import { adjustStockForItems } from "../lib/stock.js";
 
 const router = Router();
 
@@ -169,11 +170,21 @@ router.patch("/admin/website-orders/:id", requireAdmin, async (req, res) => {
     const ref  = db.collection(RETAIL_COL).doc(id);
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ error: "Order not found" });
+    const prevStatus = snap.data()?.status || "pending";
     await ref.update({
       status,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: { uid: req.admin.uid, name: req.admin.name || null },
     });
+
+    // Stock: decrement on dispatch, restore if cancelling a dispatched order
+    const items = snap.data()?.items || [];
+    if (status === "dispatched" && prevStatus !== "dispatched") {
+      await adjustStockForItems(items, "decrement").catch(() => {});
+    } else if (status === "cancelled" && prevStatus === "dispatched") {
+      await adjustStockForItems(items, "increment").catch(() => {});
+    }
+
     const fresh = await ref.get();
     res.json(serializeOrder(fresh.id, fresh.data()));
   } catch (err) {

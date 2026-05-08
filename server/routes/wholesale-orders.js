@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, admin, toISOString, chunkArray } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
 import { sanitizeStr, toNumber } from "../lib/helpers.js";
+import { adjustStockForItems } from "../lib/stock.js";
 
 const router = Router();
 
@@ -180,11 +181,24 @@ router.patch("/admin/wholesale-orders/:id", requireAdmin, async (req, res) => {
     const ref = db.collection("orders").doc(docId);
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ error: "Order not found" });
+    const prevStatus = String(snap.data()?.status || "").toLowerCase();
     await ref.update({
       status,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedBy: { uid: req.admin.uid, name: req.admin.name || null },
     });
+
+    // Stock: decrement on dispatch, restore if cancelling a dispatched order
+    if ((status === "dispatched" && prevStatus !== "dispatched") ||
+        (status === "cancelled" && prevStatus === "dispatched")) {
+      const direction = status === "dispatched" ? "decrement" : "increment";
+      const orderId = snap.data()?.id;
+      const itemsMap = orderId ? await getItemsForOrders([orderId]) : {};
+      const orderItems = itemsMap[orderId] || [];
+      // orderItems have { productId, productName, quantity }
+      await adjustStockForItems(orderItems, direction).catch(() => {});
+    }
+
     res.json({ ok: true, status });
   } catch (err) {
     console.error("wholesale-order patch:", err);
