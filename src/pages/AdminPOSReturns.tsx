@@ -34,11 +34,11 @@ export default function AdminPOSReturns() {
       <PageHeader title="Sales Returns" subtitle={`${returns.length} total returns`} />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Total Returns</div>
           <div className="mt-2 font-display text-2xl font-bold text-ink-900">{returns.length}</div>
         </div>
-        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Total Refunded</div>
           <div className="mt-2 font-display text-2xl font-bold text-red-600">{formatPrice(totalRefunded)}</div>
         </div>

@@ -106,7 +106,7 @@ export default function AdminCareers() {
           { label: "Total Applications", value: apps.length, color: "text-blue-600", bg: "bg-blue-50" },
           { label: "New Applications", value: newApps, color: "text-brand-600", bg: "bg-brand-50" },
         ].map((s) => (
-          <div key={s.label} className={`rounded-2xl border border-ink-100 ${s.bg} p-5`}>
+          <div key={s.label} className={`rounded-2xl border border-ink-100 ${s.bg} p-5 flex flex-col items-center justify-center text-center`}>
             <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">{s.label}</div>
             <div className={`mt-2 font-display text-3xl font-bold ${s.color}`}>{s.value}</div>
           </div>

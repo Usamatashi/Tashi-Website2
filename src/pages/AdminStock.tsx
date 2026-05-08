@@ -135,17 +135,17 @@ export default function AdminStock() {
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Total Items</div>
           <div className="mt-2 font-display text-2xl font-bold text-ink-900">{stock.length}</div>
         </div>
-        <div className={`rounded-2xl border p-5 shadow-sm ${lowStock.length ? "border-amber-200 bg-amber-50" : "border-ink-200 bg-white"}`}>
+        <div className={`rounded-2xl border p-5 shadow-sm flex flex-col items-center justify-center text-center ${lowStock.length ? "border-amber-200 bg-amber-50" : "border-ink-200 bg-white"}`}>
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-600">
             <AlertTriangle className="h-3.5 w-3.5" /> Low Stock
           </div>
           <div className="mt-2 font-display text-2xl font-bold text-amber-700">{lowStock.length}</div>
         </div>
-        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-ink-200 bg-white p-5 shadow-sm flex flex-col items-center justify-center text-center">
           <div className="text-xs font-semibold uppercase tracking-wider text-ink-500">Stock Value</div>
           <div className="mt-2 font-display text-2xl font-bold text-ink-900">{formatPrice(totalValue)}</div>
         </div>
