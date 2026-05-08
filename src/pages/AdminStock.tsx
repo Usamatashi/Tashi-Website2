@@ -154,7 +154,7 @@ export default function AdminStock() {
   return (
     <PageShell>
       <PageHeader
-        title="Stock Management"
+        title="Inventory Management"
         subtitle={`${stock.length} products tracked · ${lowStock.length} low stock`}
         actions={
           <div className="flex gap-2">
