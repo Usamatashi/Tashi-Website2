@@ -110,9 +110,10 @@ router.post("/generate-monthly", async (req, res) => {
       const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
       if (totalDebit === 0 || Math.abs(totalDebit - totalCredit) > 1) return;
       const id = String(await nextId("journal_entries"));
+      const accountIds = [...new Set(lines.map((l) => l.accountId).filter(Boolean))];
       const entry = {
         id, reference: `MNTH-${monthLabel}-${suffix}`, date: dateLabel,
-        description, lines, totalDebit, totalCredit,
+        description, lines, totalDebit, totalCredit, accountIds,
         status: "draft",
         createdAt: new Date(), createdBy: req.admin?.userId ?? null,
         postedAt: null, postedBy: null, voidedAt: null, voidedBy: null, voidReason: null,
@@ -212,12 +213,14 @@ router.post("/", async (req, res) => {
     if (totalDebit === 0) return res.status(400).json({ error: "Entry amounts cannot be zero" });
     const id = await nextId("journal_entries");
     const ref = `JV-${String(id).padStart(6, "0")}`;
+    const cleanLines = lines.map((l) => ({
+      accountId: l.accountId, accountCode: l.accountCode || "", accountName: l.accountName || "",
+      debit: Number(l.debit) || 0, credit: Number(l.credit) || 0, description: l.description || "",
+    }));
     const entry = {
       id: String(id), reference: reference || ref, date, description: description || "",
-      lines: lines.map((l) => ({
-        accountId: l.accountId, accountCode: l.accountCode || "", accountName: l.accountName || "",
-        debit: Number(l.debit) || 0, credit: Number(l.credit) || 0, description: l.description || "",
-      })),
+      lines: cleanLines,
+      accountIds: [...new Set(cleanLines.map((l) => l.accountId).filter(Boolean))],
       totalDebit, totalCredit,
       status: "draft",
       createdAt: new Date(), createdBy: req.admin?.userId ?? null,
@@ -275,6 +278,7 @@ router.put("/:id", async (req, res) => {
       }));
       updates.totalDebit  = updates.lines.reduce((s, l) => s + l.debit,  0);
       updates.totalCredit = updates.lines.reduce((s, l) => s + l.credit, 0);
+      updates.accountIds  = [...new Set(updates.lines.map((l) => l.accountId).filter(Boolean))];
     }
     await ref.update(updates);
     const updated = { ...doc.data(), ...updates };
