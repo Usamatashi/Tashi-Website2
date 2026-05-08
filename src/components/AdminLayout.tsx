@@ -45,7 +45,6 @@ const NAV: NavSection[] = [
     title: "Point of Sale",
     items: [
       { to: "/admin/pos", icon: MonitorSmartphone, label: "POS Terminal" },
-      { to: "/admin/pos-returns", icon: RotateCcw, label: "Sales Returns" },
     ],
   },
   {
@@ -54,6 +53,7 @@ const NAV: NavSection[] = [
       { to: "/admin/suppliers", icon: Truck, label: "Suppliers" },
       { to: "/admin/expenses", icon: TrendingDown, label: "Expenses" },
       { to: "/admin/purchases", icon: ShoppingCart, label: "Purchases" },
+      { to: "/admin/pos-returns", icon: RotateCcw, label: "Sales Returns" },
       { to: "/admin/stock", icon: Layers, label: "Inventory" },
       { to: "/admin/chart-of-accounts", icon: BookOpen, label: "Chart of Accounts" },
       { to: "/admin/journals", icon: BookMarked, label: "Journal Entries" },
