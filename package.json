@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n web,api -c blue,green -k \"vite dev --port 5000\" \"node server/index.js\"",
+    "dev": "npx concurrently -n web,api -c blue,green -k \"vite dev --port 5000\" \"node server/index.js\"",
     "dev:web": "vite dev",
     "dev:api": "node server/index.js",
     "build": "vite build",
