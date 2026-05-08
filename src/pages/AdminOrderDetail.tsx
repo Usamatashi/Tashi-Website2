@@ -114,7 +114,7 @@ export default function AdminOrderDetail() {
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="font-mono text-xs font-semibold uppercase tracking-widest text-ink-400">
-            Retail Order #{order.id.slice(0, 8).toUpperCase()}
+            Website Order #{order.id.slice(0, 8).toUpperCase()}
           </div>
           <h1 className="mt-1 font-display text-2xl font-bold text-ink-900 sm:text-3xl">
             {order.customer.name || "—"}
