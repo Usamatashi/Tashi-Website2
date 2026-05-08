@@ -130,6 +130,10 @@ router.post("/returns", async (req, res) => {
       createdAt: new Date(),
     };
     await db.collection("purchase_returns").doc(String(id)).set(doc);
+
+    // Mark the original purchase as having a return
+    await purchaseRef.update({ hasReturn: true });
+
     res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight, RotateCcw,
   CheckCircle2, Clock, AlertCircle,
@@ -50,6 +50,7 @@ export default function AdminPurchases() {
   const [returnReason, setReturnReason] = useState("");
   const [returnErr, setReturnErr] = useState<string | null>(null);
   const [returnSaving, setReturnSaving] = useState(false);
+  const returnSavingRef = useRef(false);
   // Inline partial payment editing
   const [editingPayment, setEditingPayment] = useState<string | null>(null);
   const [paymentInput, setPaymentInput] = useState("");
@@ -150,10 +151,12 @@ export default function AdminPurchases() {
   }
 
   async function handleReturn() {
+    if (returnSavingRef.current) return;
     setReturnErr(null);
     if (!returnPurchase) return;
     const validItems = returnItems.filter((i) => Number(i.qty) > 0);
     if (!validItems.length) { setReturnErr("At least one item required"); return; }
+    returnSavingRef.current = true;
     setReturnSaving(true);
     try {
       const items = validItems.map((i) => ({ productName: i.productName, sku: i.sku, qty: Number(i.qty), unitCost: Number(i.unitCost), lineTotal: Number(i.qty) * Number(i.unitCost) }));
@@ -164,9 +167,10 @@ export default function AdminPurchases() {
         items, totalReturn, reason: returnReason,
       });
       setReturns((prev) => [created, ...prev]);
+      setPurchases((prev) => prev.map((p) => p.id === returnPurchase.id ? { ...p, hasReturn: true } : p));
       setReturnPurchase(null);
     } catch (e: unknown) { setReturnErr(e instanceof Error ? e.message : "Failed"); }
-    finally { setReturnSaving(false); }
+    finally { returnSavingRef.current = false; setReturnSaving(false); }
   }
 
   if (loading) return <PageShell><Loading /></PageShell>;
@@ -231,6 +235,9 @@ export default function AdminPurchases() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-mono text-xs font-semibold text-blue-600">{p.purchaseNumber}</span>
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusInfo.color}`}>{statusInfo.label}</span>
+                          {(p as Purchase & { hasReturn?: boolean }).hasReturn && (
+                            <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700 flex items-center gap-0.5"><RotateCcw className="h-2.5 w-2.5" />Returned</span>
+                          )}
                           {p.paymentStatus === "partial" && p.amountPaid > 0 && (
                             <span className="text-[10px] text-ink-400">Paid {formatPrice(p.amountPaid)} · Owed {formatPrice(outstanding)}</span>
                           )}
