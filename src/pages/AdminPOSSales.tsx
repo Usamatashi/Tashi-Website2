@@ -32,6 +32,7 @@ const CHANNELS = [
   { key: "all", label: "All Sales" },
   { key: "pos", label: "POS" },
   { key: "wholesale", label: "Wholesale" },
+  { key: "website", label: "Website" },
 ];
 const PAYMENT_COLORS: Record<string, string> = {
   cash: "bg-emerald-100 text-emerald-700",
@@ -40,7 +41,7 @@ const PAYMENT_COLORS: Record<string, string> = {
   jazzcash: "bg-red-100 text-red-700",
   wholesale: "bg-amber-100 text-amber-700",
 };
-const PIE_COLORS = ["#f97316", "#3b82f6"];
+const PIE_COLORS = ["#f97316", "#3b82f6", "#10b981"];
 const PAYMENT_METHODS_LIST = [
   { key: "cash", label: "Cash" },
   { key: "card", label: "Card" },
@@ -192,6 +193,7 @@ export default function AdminPOSSales() {
   const pieData = [
     { name: "POS", value: stats?.posRevenue ?? 0 },
     { name: "Wholesale", value: stats?.wsRevenue ?? 0 },
+    { name: "Website", value: stats?.websiteRevenue ?? 0 },
   ];
 
   return (
@@ -254,9 +256,10 @@ export default function AdminPOSSales() {
               <TrendingUp className="h-5 w-5 text-white/60" />
             </div>
             <div className="mt-2 font-display text-3xl font-bold">{fmtPrice(stats?.totalRevenue ?? 0)}</div>
-            <div className="mt-2 flex gap-3 text-xs text-white/80">
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-white/80">
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white" />POS {fmtPrice(stats?.posRevenue ?? 0)}</span>
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white/50" />Wholesale {fmtPrice(stats?.wsRevenue ?? 0)}</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />Website {fmtPrice(stats?.websiteRevenue ?? 0)}</span>
             </div>
           </div>
         </div>
@@ -270,9 +273,10 @@ export default function AdminPOSSales() {
               <Calendar className="h-5 w-5 text-white/60" />
             </div>
             <div className="mt-2 font-display text-3xl font-bold">{fmtPrice(stats?.todayRevenue ?? 0)}</div>
-            <div className="mt-2 flex gap-3 text-xs text-white/80">
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-white/80">
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white" />POS {fmtPrice(stats?.todayPOSRevenue ?? 0)}</span>
               <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-white/50" />Wholesale {fmtPrice(stats?.todayWSRevenue ?? 0)}</span>
+              <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />Website {fmtPrice(stats?.todayWebsiteRevenue ?? 0)}</span>
             </div>
           </div>
         </div>
@@ -290,6 +294,7 @@ export default function AdminPOSSales() {
               <div className="flex items-center gap-3 text-xs">
                 <span className="flex items-center gap-1.5 text-ink-500"><span className="h-2.5 w-2.5 rounded-sm bg-brand-500" />POS</span>
                 <span className="flex items-center gap-1.5 text-ink-500"><span className="h-2.5 w-2.5 rounded-sm bg-blue-500" />Wholesale</span>
+                <span className="flex items-center gap-1.5 text-ink-500"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />Website</span>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={220}>
@@ -303,6 +308,10 @@ export default function AdminPOSSales() {
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
                   </linearGradient>
+                  <linearGradient id="gWeb" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.02} />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tickFormatter={shortDate} tick={{ fontSize: 10, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
@@ -310,6 +319,7 @@ export default function AdminPOSSales() {
                 <ReTooltip content={<ChartTooltip />} />
                 <Area type="monotone" dataKey="pos" name="POS" stroke="#f97316" strokeWidth={2} fill="url(#gPOS)" dot={false} activeDot={{ r: 4, fill: "#f97316" }} />
                 <Area type="monotone" dataKey="wholesale" name="Wholesale" stroke="#3b82f6" strokeWidth={2} fill="url(#gWS)" dot={false} activeDot={{ r: 4, fill: "#3b82f6" }} />
+                <Area type="monotone" dataKey="website" name="Website" stroke="#10b981" strokeWidth={2} fill="url(#gWeb)" dot={false} activeDot={{ r: 4, fill: "#10b981" }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -410,6 +420,7 @@ function TxRow({ tx, expanded, onToggle }: {
   tx: SalesTx; expanded: boolean; onToggle: () => void;
 }) {
   const isPOS = tx.type === "pos";
+  const isWebsite = tx.type === "website";
   const isReturned = tx.returned;
   const isFullReturn = isReturned && tx.netAmount === 0;
 
@@ -421,19 +432,31 @@ function TxRow({ tx, expanded, onToggle }: {
       >
         <div className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full ${
           isFullReturn ? "bg-red-100 text-red-500" :
-          isPOS ? "bg-brand-100 text-brand-700" : "bg-blue-100 text-blue-700"
+          isPOS ? "bg-brand-100 text-brand-700" :
+          isWebsite ? "bg-emerald-100 text-emerald-700" :
+          "bg-blue-100 text-blue-700"
         }`}>
           {isFullReturn ? <RotateCcw className="h-4 w-4" /> : isPOS ? <ShoppingBag className="h-4 w-4" /> : <Package className="h-4 w-4" />}
         </div>
 
         <div className="flex-1 text-left min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`font-mono text-xs font-semibold ${isFullReturn ? "line-through text-red-400" : isPOS ? "text-brand-600" : "text-blue-600"}`}>
+            <span className={`font-mono text-xs font-semibold ${
+              isFullReturn ? "line-through text-red-400" :
+              isPOS ? "text-brand-600" :
+              isWebsite ? "text-emerald-700" :
+              "text-blue-600"
+            }`}>
               {tx.ref}
             </span>
             {!isReturned && (
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${PAYMENT_COLORS[tx.paymentMethod] || "bg-ink-100 text-ink-600"}`}>
-                {isPOS ? tx.paymentMethod : "Wholesale"}
+                {isPOS ? tx.paymentMethod : isWebsite ? tx.paymentMethod : "Wholesale"}
+              </span>
+            )}
+            {isWebsite && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                Website Order
               </span>
             )}
             {isReturned && (
@@ -443,7 +466,7 @@ function TxRow({ tx, expanded, onToggle }: {
               </span>
             )}
             {tx.status && !isPOS && (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${tx.status === "confirmed" ? "bg-emerald-100 text-emerald-700" : tx.status === "cancelled" ? "bg-red-100 text-red-600" : "bg-ink-100 text-ink-600"}`}>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${tx.status === "confirmed" || tx.status === "dispatched" ? "bg-emerald-100 text-emerald-700" : tx.status === "cancelled" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"}`}>
                 {tx.status}
               </span>
             )}

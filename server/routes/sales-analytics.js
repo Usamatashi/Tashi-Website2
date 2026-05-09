@@ -79,6 +79,37 @@ async function fetchPOSSales(fromDate, toDate) {
     .filter((s) => s.createdAt >= fromDate && s.createdAt <= toDate);
 }
 
+async function fetchWebsiteOrders(fromDate, toDate) {
+  const snap = await db.collection("retail_orders").get();
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
+      return { id: d.id, data, createdAt: ct };
+    })
+    .filter((o) => o.createdAt >= fromDate && o.createdAt <= toDate)
+    .map(({ id, data: o, createdAt }) => ({
+      id,
+      type: "website",
+      ref: `WEB-${id.slice(0, 8).toUpperCase()}`,
+      customer: o.customer?.name || "Online Customer",
+      customerId: null,
+      amount: toNum(o.total),
+      createdAt,
+      paymentMethod: o.payment?.method || "cod",
+      status: o.status || "pending",
+      items: (o.items || []).map((i) => ({
+        productName: i.productName || "—",
+        qty: toNum(i.quantity),
+        unitPrice: toNum(i.unitPrice),
+        discountPct: 0,
+        lineTotal: toNum(i.lineTotal),
+        sku: i.sku || "",
+        productId: null,
+      })),
+    }));
+}
+
 async function fetchWholesaleOrders(fromDate, toDate) {
   const snap = await db.collection("orders").get();
   const orders = snap.docs
@@ -167,9 +198,10 @@ router.get("/", async (req, res) => {
     const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
 
     // Fetch all data in parallel
-    const [rawPOS, rawWS, returnsSnap] = await Promise.all([
-      channel !== "wholesale" ? fetchPOSSales(fromDate, toDate) : Promise.resolve([]),
-      channel !== "pos" ? fetchWholesaleOrders(fromDate, toDate) : Promise.resolve([]),
+    const [rawPOS, rawWS, rawWeb, returnsSnap] = await Promise.all([
+      (channel === "all" || channel === "pos") ? fetchPOSSales(fromDate, toDate) : Promise.resolve([]),
+      (channel === "all" || channel === "wholesale") ? fetchWholesaleOrders(fromDate, toDate) : Promise.resolve([]),
+      (channel === "all" || channel === "website") ? fetchWebsiteOrders(fromDate, toDate) : Promise.resolve([]),
       db.collection("pos_returns").get(),
     ]);
 
@@ -194,8 +226,9 @@ router.get("/", async (req, res) => {
     });
 
     const markedWS = rawWS.map((s) => ({ ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount }));
+    const markedWeb = rawWeb.map((s) => ({ ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount }));
 
-    let allSales = [...markedPOS, ...markedWS].sort((a, b) => b.createdAt - a.createdAt);
+    let allSales = [...markedPOS, ...markedWS, ...markedWeb].sort((a, b) => b.createdAt - a.createdAt);
 
     if (customerSearch) {
       allSales = allSales.filter((s) => s.customer.toLowerCase().includes(customerSearch));
@@ -210,20 +243,23 @@ router.get("/", async (req, res) => {
     const totalRevenue = allSales.reduce((s, x) => s + x.netAmount, 0);
     const posRevenue = allSales.filter((x) => x.type === "pos").reduce((s, x) => s + x.netAmount, 0);
     const wsRevenue = allSales.filter((x) => x.type === "wholesale").reduce((s, x) => s + x.netAmount, 0);
+    const websiteRevenue = allSales.filter((x) => x.type === "website").reduce((s, x) => s + x.netAmount, 0);
 
     // Today stats — use all fetched data regardless of date filter
-    const todayAll = [...markedPOS, ...markedWS].filter((s) => s.createdAt >= todayStart && s.createdAt <= todayEnd);
+    const todayAll = [...markedPOS, ...markedWS, ...markedWeb].filter((s) => s.createdAt >= todayStart && s.createdAt <= todayEnd);
     const todayRevenue = todayAll.reduce((s, x) => s + x.netAmount, 0);
     const todayPOSRevenue = todayAll.filter((x) => x.type === "pos").reduce((s, x) => s + x.netAmount, 0);
     const todayWSRevenue = todayAll.filter((x) => x.type === "wholesale").reduce((s, x) => s + x.netAmount, 0);
+    const todayWebsiteRevenue = todayAll.filter((x) => x.type === "website").reduce((s, x) => s + x.netAmount, 0);
 
     // Chart data — group by day, use netAmount
     const chartMap = {};
     for (const s of allSales) {
       const day = s.createdAt.toISOString().slice(0, 10);
-      if (!chartMap[day]) chartMap[day] = { date: day, pos: 0, wholesale: 0, total: 0 };
+      if (!chartMap[day]) chartMap[day] = { date: day, pos: 0, wholesale: 0, website: 0, total: 0 };
       if (s.type === "pos") chartMap[day].pos += s.netAmount;
-      else chartMap[day].wholesale += s.netAmount;
+      else if (s.type === "wholesale") chartMap[day].wholesale += s.netAmount;
+      else chartMap[day].website += s.netAmount;
       chartMap[day].total += s.netAmount;
     }
     const chartData = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date));
@@ -242,7 +278,7 @@ router.get("/", async (req, res) => {
     const topProducts = Object.values(productMap).sort((a, b) => b.revenue - a.revenue).slice(0, 8);
 
     res.json({
-      stats: { totalRevenue, posRevenue, wsRevenue, todayRevenue, todayPOSRevenue, todayWSRevenue, totalCount: allSales.length },
+      stats: { totalRevenue, posRevenue, wsRevenue, websiteRevenue, todayRevenue, todayPOSRevenue, todayWSRevenue, todayWebsiteRevenue, totalCount: allSales.length },
       chartData,
       topProducts,
       transactions: allSales.map((s) => ({

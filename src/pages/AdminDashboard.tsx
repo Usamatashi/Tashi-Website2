@@ -17,7 +17,7 @@ type Counts = {
   pendingClaims: number; pendingPayments: number;
   retailerOutstanding: number; qrTotal: number; adsTotal: number;
   tickerTotal: number; usersTotal: number;
-  monthRevenue: { posRevenue: number; wholesaleRevenue: number; totalMonthRevenue: number } | null;
+  monthRevenue: { posRevenue: number; wholesaleRevenue: number; websiteRevenue: number; totalMonthRevenue: number } | null;
 };
 
 const STAT_CARDS = (c: Counts) => [
@@ -117,6 +117,7 @@ export default function AdminDashboard() {
   const revenue = counts.monthRevenue?.totalMonthRevenue ?? counts.websiteOrders?.revenue ?? 0;
   const posRevenue = counts.monthRevenue?.posRevenue ?? 0;
   const wholesaleRevenue = counts.monthRevenue?.wholesaleRevenue ?? 0;
+  const websiteRevenue = counts.monthRevenue?.websiteRevenue ?? 0;
   const cards = STAT_CARDS(counts);
 
   return (
@@ -178,14 +179,15 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h2 className="font-display text-base font-bold text-ink-900">This Month's Revenue</h2>
-              <p className="text-xs text-ink-500">POS sales + wholesale orders combined</p>
+              <p className="text-xs text-ink-500">POS sales + wholesale + website orders combined</p>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             {[
               { label: "POS Sales", value: posRevenue, color: "bg-violet-500" },
               { label: "Wholesale Orders", value: wholesaleRevenue, color: "bg-blue-500" },
+              { label: "Website Orders", value: websiteRevenue, color: "bg-emerald-500" },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-ink-100 p-4">
                 <div className="flex items-center gap-2">

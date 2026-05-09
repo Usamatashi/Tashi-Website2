@@ -83,7 +83,7 @@ export async function adminGetStats() {
   return handle<AdminStats>(await apiFetch("/api/admin/stats", j()));
 }
 export async function adminGetMonthRevenue() {
-  return handle<{ posRevenue: number; wholesaleRevenue: number; totalMonthRevenue: number }>(
+  return handle<{ posRevenue: number; wholesaleRevenue: number; websiteRevenue: number; totalMonthRevenue: number }>(
     await apiFetch("/api/admin/month-revenue", j())
   );
 }
@@ -433,7 +433,7 @@ export async function adminGetPOSSaleStats() {
 
 // ── Sales Analytics (combined POS + Wholesale) ────────────────────────────
 export type SalesTx = {
-  id: string; type: "pos" | "wholesale"; ref: string;
+  id: string; type: "pos" | "wholesale" | "website"; ref: string;
   customer: string; customerId: string | null;
   amount: number; netAmount: number; refundedAmount: number;
   returned: boolean; returnRefs: string[];
@@ -443,11 +443,11 @@ export type SalesTx = {
   raw?: unknown;
 };
 export type SalesAnalyticsStats = {
-  totalRevenue: number; posRevenue: number; wsRevenue: number;
-  todayRevenue: number; todayPOSRevenue: number; todayWSRevenue: number;
+  totalRevenue: number; posRevenue: number; wsRevenue: number; websiteRevenue: number;
+  todayRevenue: number; todayPOSRevenue: number; todayWSRevenue: number; todayWebsiteRevenue: number;
   totalCount: number;
 };
-export type SalesChartPoint = { date: string; pos: number; wholesale: number; total: number };
+export type SalesChartPoint = { date: string; pos: number; wholesale: number; website: number; total: number };
 export type TopProduct = { name: string; qty: number; revenue: number };
 export type SalesAnalyticsResult = {
   stats: SalesAnalyticsStats; chartData: SalesChartPoint[];

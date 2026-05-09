@@ -280,10 +280,24 @@ router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
       }
     }
 
+    // Website (retail) orders revenue this month
+    const retailSnap = await db.collection(RETAIL_COL).get();
+    let websiteRevenue = 0;
+    retailSnap.forEach((d) => {
+      const data = d.data();
+      if (String(data?.status || "").toLowerCase() === "cancelled") return;
+      const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
+      if (ct >= monthStart) {
+        websiteRevenue += toNumber(data?.total, 0);
+      }
+    });
+    websiteRevenue = Math.round(websiteRevenue);
+
     res.json({
       posRevenue:          Math.round(posRevenue),
       wholesaleRevenue:    Math.round(wholesaleRevenue),
-      totalMonthRevenue:   Math.round(posRevenue + wholesaleRevenue),
+      websiteRevenue,
+      totalMonthRevenue:   Math.round(posRevenue + wholesaleRevenue + websiteRevenue),
     });
   } catch (err) {
     console.error("month-revenue:", err);
