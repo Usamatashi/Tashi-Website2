@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Plus, AlertTriangle, RefreshCw, Package, History,
-  TrendingUp, TrendingDown, ArrowUpDown, X,
+  TrendingUp, TrendingDown, ArrowUpDown,
 } from "lucide-react";
 import {
   adminListProducts, adminListStock, adminCreateStock, adminAdjustStock,
@@ -12,21 +12,28 @@ import {
 import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
 
 const CATEGORIES = [
-  { key: "theft",    label: "Theft",          color: "bg-red-100 text-red-700" },
-  { key: "loss",     label: "Loss / Damage",  color: "bg-orange-100 text-orange-700" },
-  { key: "found",    label: "Found / Surplus", color: "bg-emerald-100 text-emerald-700" },
-  { key: "purchase", label: "Purchase / Restock", color: "bg-blue-100 text-blue-700" },
-  { key: "other",    label: "Other Accounting", color: "bg-ink-100 text-ink-600" },
+  { key: "theft",    label: "Theft",               color: "bg-red-100 text-red-700" },
+  { key: "loss",     label: "Loss / Damage",        color: "bg-orange-100 text-orange-700" },
+  { key: "found",    label: "Found / Surplus",      color: "bg-emerald-100 text-emerald-700" },
+  { key: "purchase", label: "Purchase / Restock",   color: "bg-blue-100 text-blue-700" },
+  { key: "other",    label: "Other Accounting",     color: "bg-ink-100 text-ink-600" },
 ];
 
+// ── Add new product form ──────────────────────────────────────────────────
+type AddForm = {
+  productName: string; sku: string;
+  quantity: string; minQuantity: string;
+  costPrice: string; sellingPrice: string;
+};
+const emptyAdd = (): AddForm => ({
+  productName: "", sku: "", quantity: "", minQuantity: "5", costPrice: "", sellingPrice: "",
+});
+
+// ── Adjust existing product form ──────────────────────────────────────────
 type AdjustForm = {
-  stockId: string;
-  productName: string;
+  stockId: string; productName: string;
   direction: "add" | "remove";
-  qty: string;
-  costPerUnit: string;
-  category: string;
-  reason: string;
+  qty: string; costPerUnit: string; category: string; reason: string;
 };
 const emptyAdjust = (): AdjustForm => ({
   stockId: "", productName: "", direction: "add", qty: "", costPerUnit: "", category: "other", reason: "",
@@ -38,14 +45,21 @@ export default function AdminStock() {
   const [loading, setLoading]   = useState(true);
   const [syncing, setSyncing]   = useState(false);
 
-  const [showAdjust, setShowAdjust]   = useState(false);
-  const [adjustForm, setAdjustForm]   = useState<AdjustForm>(emptyAdjust());
+  // Add new product modal
+  const [showAdd, setShowAdd]     = useState(false);
+  const [addForm, setAddForm]     = useState<AddForm>(emptyAdd());
+  const [addSaving, setAddSaving] = useState(false);
+  const [addErr, setAddErr]       = useState<string | null>(null);
+
+  // Adjust existing product modal
+  const [showAdjust, setShowAdjust]     = useState(false);
+  const [adjustForm, setAdjustForm]     = useState<AdjustForm>(emptyAdjust());
   const [adjustSaving, setAdjustSaving] = useState(false);
-  const [adjustErr, setAdjustErr]     = useState<string | null>(null);
+  const [adjustErr, setAdjustErr]       = useState<string | null>(null);
 
   // History modal
-  const [historyItem, setHistoryItem]   = useState<StockItem | null>(null);
-  const [history, setHistory]           = useState<StockHistoryEntry[]>([]);
+  const [historyItem, setHistoryItem]       = useState<StockItem | null>(null);
+  const [history, setHistory]               = useState<StockHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   async function load() {
@@ -63,14 +77,42 @@ export default function AdminStock() {
       const result = await adminSyncStockFromPurchases();
       await load();
       alert(`Sync complete: ${result.created} new entries created, ${result.updated} updated.`);
-    } catch (e: unknown) {
-      alert((e as Error).message || "Sync failed");
-    } finally { setSyncing(false); }
+    } catch (e: unknown) { alert((e as Error).message || "Sync failed"); }
+    finally { setSyncing(false); }
   }
 
   useEffect(() => { load(); }, []);
 
-  // Open adjust modal pre-filled for a specific item
+  // ── Add new product ────────────────────────────────────────────────────
+  function openAdd() {
+    setAddForm(emptyAdd());
+    setAddErr(null);
+    setShowAdd(true);
+  }
+
+  async function handleAdd() {
+    setAddErr(null);
+    if (!addForm.productName.trim()) { setAddErr("Product name is required"); return; }
+    setAddSaving(true);
+    try {
+      // Use a synthetic productId based on timestamp
+      const productId = Date.now();
+      const created = await adminCreateStock({
+        productId,
+        productName: addForm.productName.trim(),
+        sku: addForm.sku.trim() || undefined,
+        quantity: addForm.quantity ? Number(addForm.quantity) : 0,
+        minQuantity: addForm.minQuantity ? Number(addForm.minQuantity) : 5,
+        costPrice: addForm.costPrice ? Number(addForm.costPrice) : undefined,
+        sellingPrice: addForm.sellingPrice ? Number(addForm.sellingPrice) : undefined,
+      });
+      setStock((prev) => [...prev, created].sort((a, b) => a.productName.localeCompare(b.productName)));
+      setShowAdd(false);
+    } catch (e: unknown) { setAddErr((e as Error).message); }
+    finally { setAddSaving(false); }
+  }
+
+  // ── Adjust existing product ────────────────────────────────────────────
   function openAdjustFor(item: StockItem) {
     setAdjustForm({
       stockId: item.id,
@@ -85,16 +127,8 @@ export default function AdminStock() {
     setShowAdjust(true);
   }
 
-  // Open general adjust modal (pick product from dropdown)
-  function openAdjustGeneral() {
-    setAdjustForm(emptyAdjust());
-    setAdjustErr(null);
-    setShowAdjust(true);
-  }
-
   async function handleAdjust() {
     setAdjustErr(null);
-    if (!adjustForm.stockId) { setAdjustErr("Select a product"); return; }
     const qty = Number(adjustForm.qty);
     if (!qty || qty <= 0) { setAdjustErr("Enter a positive quantity"); return; }
     setAdjustSaving(true);
@@ -110,45 +144,41 @@ export default function AdminStock() {
     finally { setAdjustSaving(false); }
   }
 
+  // ── History ────────────────────────────────────────────────────────────
   async function openHistory(item: StockItem) {
     setHistoryItem(item);
     setHistory([]);
     setHistoryLoading(true);
-    try {
-      const h = await adminGetStockHistory(item.id);
-      setHistory(h);
-    } catch { setHistory([]); }
+    try { setHistory(await adminGetStockHistory(item.id)); }
+    catch { setHistory([]); }
     finally { setHistoryLoading(false); }
   }
 
   if (loading) return <PageShell><Loading /></PageShell>;
 
-  const lowStock = stock.filter((s) => s.quantity <= s.minQuantity);
-  const totalCostValue  = stock.reduce((a, s) => {
-    const avgCost = s.averageCost ?? s.costPrice ?? 0;
-    return a + (s.totalStockValue || s.quantity * avgCost);
+  const lowStock       = stock.filter((s) => s.quantity <= s.minQuantity);
+  const totalCostValue = stock.reduce((a, s) => {
+    const avg = s.averageCost ?? s.costPrice ?? 0;
+    return a + (s.totalStockValue || s.quantity * avg);
   }, 0);
   const totalSalesValue = stock.reduce((a, s) => a + s.quantity * (s.sellingPrice || 0), 0);
 
+  // WAC preview for adjust-add
   const selectedStock = adjustForm.stockId ? stock.find((s) => s.id === adjustForm.stockId) : null;
   const previewQty = selectedStock && adjustForm.qty
     ? adjustForm.direction === "add"
       ? selectedStock.quantity + Number(adjustForm.qty)
       : Math.max(0, selectedStock.quantity - Number(adjustForm.qty))
     : null;
-
-  // WAC preview for add
   const previewAvgCost = (() => {
     if (!selectedStock || adjustForm.direction !== "add" || !adjustForm.qty || !adjustForm.costPerUnit) return null;
-    const currentQty = selectedStock.quantity;
-    const currentAvg = selectedStock.averageCost ?? selectedStock.costPrice ?? 0;
-    const currentTotal = selectedStock.totalStockValue || currentQty * currentAvg;
-    const addQty = Number(adjustForm.qty);
-    const addCost = Number(adjustForm.costPerUnit);
-    if (!addQty || !addCost) return null;
-    const newTotal = currentTotal + addQty * addCost;
-    const newQty = currentQty + addQty;
-    return newQty > 0 ? newTotal / newQty : addCost;
+    const cQty = selectedStock.quantity;
+    const cAvg = selectedStock.averageCost ?? selectedStock.costPrice ?? 0;
+    const cVal = selectedStock.totalStockValue || cQty * cAvg;
+    const aQty = Number(adjustForm.qty);
+    const aCost = Number(adjustForm.costPerUnit);
+    if (!aQty || !aCost) return null;
+    return (cQty + aQty) > 0 ? (cVal + aQty * aCost) / (cQty + aQty) : aCost;
   })();
 
   return (
@@ -162,14 +192,14 @@ export default function AdminStock() {
               <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
               {syncing ? "Syncing…" : "Sync from Purchases"}
             </Btn>
-            <Btn onClick={openAdjustGeneral}>
-              <Plus className="h-4 w-4" /> Add / Adjust Stock
+            <Btn onClick={openAdd}>
+              <Plus className="h-4 w-4" /> Add Stock
             </Btn>
           </div>
         }
       />
 
-      {/* Summary banners — Cost Value (WAC) + Sales Value */}
+      {/* Summary banners */}
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <div className={`rounded-2xl border p-5 flex flex-col items-center justify-center text-center ${lowStock.length ? "border-amber-200 bg-amber-50" : "border-ink-200 bg-white"} shadow-sm`}>
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-amber-600">
@@ -198,7 +228,7 @@ export default function AdminStock() {
 
       <Card>
         {stock.length === 0 ? (
-          <Empty icon={Package} title="No stock entries" hint='Click "Add / Adjust Stock" to start tracking inventory.' />
+          <Empty icon={Package} title="No stock entries" hint='Click "Add Stock" to start tracking a new product.' />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -217,7 +247,7 @@ export default function AdminStock() {
               <tbody className="divide-y divide-ink-100">
                 {stock.map((item) => {
                   const isLow = item.quantity <= item.minQuantity;
-                  const avgCost = item.averageCost ?? item.costPrice ?? 0;
+                  const avgCost   = item.averageCost ?? item.costPrice ?? 0;
                   const costValue = item.totalStockValue || item.quantity * avgCost;
                   const salesValue = item.quantity * (item.sellingPrice || 0);
                   return (
@@ -269,11 +299,99 @@ export default function AdminStock() {
         )}
       </Card>
 
-      {/* Adjust / Add Stock Modal */}
+      {/* ── Add New Product Modal ─────────────────────────────────────────── */}
+      <Modal
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        title="Add New Product to Inventory"
+        footer={
+          <>
+            <Btn variant="secondary" onClick={() => setShowAdd(false)}>Cancel</Btn>
+            <Btn onClick={handleAdd} disabled={addSaving}>
+              {addSaving ? "Saving…" : "Add to Inventory"}
+            </Btn>
+          </>
+        }>
+        <div className="space-y-4">
+          <ErrorBanner message={addErr} />
+
+          <Field label="Product Name *">
+            <input
+              autoFocus
+              value={addForm.productName}
+              onChange={(e) => setAddForm((f) => ({ ...f, productName: e.target.value }))}
+              placeholder="e.g. Mark X 3.0 Brake Pads"
+              className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+          </Field>
+
+          <Field label="SKU / Code (optional)">
+            <input
+              value={addForm.sku}
+              onChange={(e) => setAddForm((f) => ({ ...f, sku: e.target.value }))}
+              placeholder="e.g. T-2222"
+              className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Opening Quantity">
+              <input
+                type="number" min="0"
+                value={addForm.quantity}
+                onChange={(e) => setAddForm((f) => ({ ...f, quantity: e.target.value }))}
+                placeholder="0"
+                className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              />
+            </Field>
+            <Field label="Low Stock Alert (min qty)">
+              <input
+                type="number" min="0"
+                value={addForm.minQuantity}
+                onChange={(e) => setAddForm((f) => ({ ...f, minQuantity: e.target.value }))}
+                placeholder="5"
+                className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Cost Price (WAC)">
+              <input
+                type="number" min="0"
+                value={addForm.costPrice}
+                onChange={(e) => setAddForm((f) => ({ ...f, costPrice: e.target.value }))}
+                placeholder="Rs. 0"
+                className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              />
+            </Field>
+            <Field label="Selling Price">
+              <input
+                type="number" min="0"
+                value={addForm.sellingPrice}
+                onChange={(e) => setAddForm((f) => ({ ...f, sellingPrice: e.target.value }))}
+                placeholder="Rs. 0"
+                className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+              />
+            </Field>
+          </div>
+
+          {addForm.quantity && addForm.costPrice && (
+            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-xs text-blue-700">
+              Opening stock value:{" "}
+              <span className="font-bold font-mono">
+                {formatPrice(Number(addForm.quantity) * Number(addForm.costPrice))}
+              </span>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* ── Adjust Existing Product Modal ─────────────────────────────────── */}
       <Modal
         open={showAdjust}
         onClose={() => setShowAdjust(false)}
-        title="Add / Adjust Stock"
+        title={`Adjust Stock — ${adjustForm.productName}`}
         footer={
           <>
             <Btn variant="secondary" onClick={() => setShowAdjust(false)}>Cancel</Btn>
@@ -284,29 +402,6 @@ export default function AdminStock() {
         }>
         <div className="space-y-4">
           <ErrorBanner message={adjustErr} />
-
-          {/* Product selector */}
-          <Field label="Product *">
-            <select
-              value={adjustForm.stockId}
-              onChange={(e) => {
-                const item = stock.find((s) => s.id === e.target.value);
-                setAdjustForm((f) => ({
-                  ...f,
-                  stockId: e.target.value,
-                  productName: item?.productName || "",
-                  costPerUnit: item?.averageCost ? String(Math.round(item.averageCost)) : f.costPerUnit,
-                }));
-              }}
-              className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300">
-              <option value="">Select product…</option>
-              {stock.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.productName} (current: {s.quantity})
-                </option>
-              ))}
-            </select>
-          </Field>
 
           {/* Direction */}
           <Field label="Direction">
@@ -327,7 +422,7 @@ export default function AdminStock() {
           </Field>
 
           {/* Category */}
-          <Field label="Category / Reason">
+          <Field label="Category">
             <div className="mt-1 flex flex-wrap gap-2">
               {CATEGORIES.filter((c) =>
                 adjustForm.direction === "add"
@@ -356,7 +451,7 @@ export default function AdminStock() {
               />
             </Field>
             {adjustForm.direction === "add" && (
-              <Field label="Cost per unit (for WAC)">
+              <Field label="Cost per unit (WAC)">
                 <input
                   type="number" min="0"
                   value={adjustForm.costPerUnit}
@@ -368,7 +463,7 @@ export default function AdminStock() {
             )}
           </div>
 
-          {/* Preview */}
+          {/* Live preview */}
           {selectedStock && adjustForm.qty && Number(adjustForm.qty) > 0 && (
             <div className={`rounded-xl px-4 py-3 text-sm ${adjustForm.direction === "add" ? "bg-emerald-50 border border-emerald-100" : "bg-red-50 border border-red-100"}`}>
               <div className="flex items-center justify-between">
@@ -376,7 +471,7 @@ export default function AdminStock() {
                 <span className="font-mono font-semibold text-ink-700">{selectedStock.quantity}</span>
               </div>
               <div className="flex items-center justify-between mt-1">
-                <span className="text-ink-500 text-xs">New qty after adjustment:</span>
+                <span className="text-ink-500 text-xs">New qty:</span>
                 <span className={`font-mono font-bold text-base ${adjustForm.direction === "add" ? "text-emerald-700" : "text-red-700"}`}>
                   {previewQty}
                 </span>
@@ -394,14 +489,14 @@ export default function AdminStock() {
             <input
               value={adjustForm.reason}
               onChange={(e) => setAdjustForm((f) => ({ ...f, reason: e.target.value }))}
-              placeholder="e.g. 3 units stolen from warehouse…"
+              placeholder="e.g. Found 3 units in storage…"
               className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             />
           </Field>
         </div>
       </Modal>
 
-      {/* History Modal */}
+      {/* ── History Modal ─────────────────────────────────────────────────── */}
       <Modal
         open={!!historyItem}
         onClose={() => setHistoryItem(null)}
@@ -411,7 +506,7 @@ export default function AdminStock() {
           {historyLoading ? (
             <div className="flex justify-center py-8"><Loading /></div>
           ) : history.length === 0 ? (
-            <Empty icon={History} title="No history yet" hint="Adjustments and changes will appear here." />
+            <Empty icon={History} title="No history yet" hint="Adjustments will appear here." />
           ) : (
             <div className="divide-y divide-ink-100">
               {history.map((h) => {
