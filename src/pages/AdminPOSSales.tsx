@@ -203,8 +203,6 @@ export default function AdminPOSSales() {
       {/* ── Filters ───────────────────────────────────────────────── */}
       <div className="mb-6 rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-ink-500 flex-shrink-0">Website Sales</span>
-
           <div className="flex items-center gap-1 rounded-xl bg-ink-100 p-1">
             {CHANNELS.map((c) => (
               <button key={c.key} onClick={() => handleChannel(c.key)}
