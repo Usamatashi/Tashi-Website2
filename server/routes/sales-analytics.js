@@ -81,27 +81,24 @@ async function fetchPOSSales(fromDate, toDate) {
 
 async function fetchWebsiteOrders(fromDate, toDate) {
   const snap = await db.collection("retail_orders").get();
-  return snap.docs
-    .map((d) => {
-      const data = d.data();
-      const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
-      return { id: d.id, data, createdAt: ct };
-    })
-    .filter((o) => o.createdAt >= fromDate && o.createdAt <= toDate)
-    .map(({ id, data: o, createdAt }) => {
-      const itemsTotal = (o.items || []).reduce((s, i) => s + toNum(i.lineTotal), 0);
-      const amount = toNum(o.total) > 0 ? toNum(o.total) : (toNum(o.subtotal) > 0 ? toNum(o.subtotal) : itemsTotal);
-      return {
-      id,
+  const results = [];
+  for (const d of snap.docs) {
+    const data = d.data();
+    const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
+    if (ct < fromDate || ct > toDate) continue;
+    const itemsTotal = (data.items || []).reduce((s, i) => s + toNum(i.lineTotal), 0);
+    const amount = toNum(data.total) > 0 ? toNum(data.total) : (toNum(data.subtotal) > 0 ? toNum(data.subtotal) : itemsTotal);
+    results.push({
+      id: d.id,
       type: "website",
-      ref: `WEB-${id.slice(0, 8).toUpperCase()}`,
-      customer: o.customer?.name || "Online Customer",
+      ref: `WEB-${d.id.slice(0, 8).toUpperCase()}`,
+      customer: data.customer?.name || "Online Customer",
       customerId: null,
       amount,
-      createdAt,
-      paymentMethod: o.payment?.method || "cod",
-      status: o.status || "pending",
-      items: (o.items || []).map((i) => ({
+      createdAt: ct,
+      paymentMethod: data.payment?.method || "cod",
+      status: data.status || "pending",
+      items: (data.items || []).map((i) => ({
         productName: i.productName || "—",
         qty: toNum(i.quantity),
         unitPrice: toNum(i.unitPrice),
@@ -110,7 +107,9 @@ async function fetchWebsiteOrders(fromDate, toDate) {
         sku: i.sku || "",
         productId: null,
       })),
-    };});
+    });
+  }
+  return results;
 }
 
 async function fetchWholesaleOrders(fromDate, toDate) {
