@@ -125,7 +125,7 @@ router.get("/orders/:id", async (req, res) => {
 });
 
 // ── Admin: list all retail orders ─────────────────────────────────────────
-router.get("/admin/website-orders", requireAdmin, async (req, res) => {
+async function handleListOrders(req, res) {
   try {
     const status = req.query.status ? String(req.query.status) : null;
     let query = db.collection(RETAIL_COL);
@@ -144,10 +144,12 @@ router.get("/admin/website-orders", requireAdmin, async (req, res) => {
     console.error("Failed to list retail orders:", err);
     res.status(500).json({ error: "Failed to list orders: " + err.message });
   }
-});
+}
+router.get("/admin/website-orders", requireAdmin, handleListOrders);
+router.get("/admin/orders", requireAdmin, handleListOrders);
 
 // ── Admin: fetch a single retail order ───────────────────────────────────
-router.get("/admin/website-orders/:id", requireAdmin, async (req, res) => {
+async function handleGetOrder(req, res) {
   try {
     const id = sanitizeStr(req.params.id, 200);
     if (!id) return res.status(400).json({ error: "Invalid order id" });
@@ -158,10 +160,12 @@ router.get("/admin/website-orders/:id", requireAdmin, async (req, res) => {
     console.error("Failed to fetch retail order:", err);
     res.status(500).json({ error: "Failed to fetch order: " + err.message });
   }
-});
+}
+router.get("/admin/website-orders/:id", requireAdmin, handleGetOrder);
+router.get("/admin/orders/:id", requireAdmin, handleGetOrder);
 
 // ── Admin: update status (pending → dispatched → cancelled) ───────────────
-router.patch("/admin/website-orders/:id", requireAdmin, async (req, res) => {
+async function handleUpdateOrder(req, res) {
   try {
     const id     = sanitizeStr(req.params.id, 200);
     const status = sanitizeStr(req.body?.status, 30).toLowerCase();
@@ -191,10 +195,12 @@ router.patch("/admin/website-orders/:id", requireAdmin, async (req, res) => {
     console.error("Failed to update retail order:", err);
     res.status(500).json({ error: "Failed to update order: " + err.message });
   }
-});
+}
+router.patch("/admin/website-orders/:id", requireAdmin, handleUpdateOrder);
+router.patch("/admin/orders/:id", requireAdmin, handleUpdateOrder);
 
 // ── Admin: stats for dashboard ────────────────────────────────────────────
-router.get("/admin/website-stats", requireAdmin, async (_req, res) => {
+async function handleWebsiteStats(_req, res) {
   try {
     const snap = await db.collection(RETAIL_COL).get();
     const counts = { total: 0, pending: 0, dispatched: 0, cancelled: 0, revenue: 0 };
@@ -211,7 +217,9 @@ router.get("/admin/website-stats", requireAdmin, async (_req, res) => {
     console.error("Failed to compute retail stats:", err);
     res.status(500).json({ error: "Failed to compute stats" });
   }
-});
+}
+router.get("/admin/website-stats", requireAdmin, handleWebsiteStats);
+router.get("/admin/stats", requireAdmin, handleWebsiteStats);
 
 router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
   try {
