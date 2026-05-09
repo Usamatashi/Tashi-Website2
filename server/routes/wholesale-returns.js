@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, toISOString, nextId } from "../lib/firebase.js";
+import { db, toISOString, nextId, admin } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
 
 const router = Router();
@@ -61,6 +61,13 @@ router.post("/", async (req, res) => {
     };
 
     await db.collection("wholesale_returns").doc(String(id)).set(record);
+
+    // Mark original order — diminish its net revenue
+    await docRef.update({
+      hasReturn: true,
+      returnedAmount: admin.firestore.FieldValue.increment(record.totalRefund),
+      returnNumbers: admin.firestore.FieldValue.arrayUnion(returnNumber),
+    });
 
     // Restore stock
     for (const item of record.items) {

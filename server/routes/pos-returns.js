@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, toISOString, nextId } from "../lib/firebase.js";
+import { db, toISOString, nextId, admin } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
 
 const router = Router();
@@ -66,6 +66,13 @@ router.post("/", async (req, res) => {
     };
 
     await db.collection("pos_returns").doc(String(id)).set(returnRecord);
+
+    // Mark original sale — diminish its net revenue
+    await saleRef.update({
+      hasReturn: true,
+      returnedAmount: admin.firestore.FieldValue.increment(returnRecord.totalRefund),
+      returnNumbers: admin.firestore.FieldValue.arrayUnion(returnNumber),
+    });
 
     // Restore stock — skip only if productId is null/undefined (not zero-value)
     for (const item of returnRecord.items) {

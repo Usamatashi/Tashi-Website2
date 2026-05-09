@@ -5,15 +5,15 @@ import {
 } from "recharts";
 import {
   TrendingUp, Calendar, Search, X, ChevronDown, ChevronRight,
-  ShoppingBag, Package, RotateCcw, Layers, AlertTriangle,
+  ShoppingBag, Package, RotateCcw, Layers,
 } from "lucide-react";
 import {
-  adminGetSalesAnalytics, adminGetSalesAutocompleteOptions, adminCreatePOSReturn,
+  adminGetSalesAnalytics, adminGetSalesAutocompleteOptions,
   formatPrice, formatDate,
-  type SalesAnalyticsResult, type SalesTx, type POSReturnItem, type POSSale,
+  type SalesAnalyticsResult, type SalesTx,
   type SalesAutocompleteOptions,
 } from "@/lib/admin";
-import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
+import { PageHeader, PageShell, Loading, Card, Empty } from "@/components/admin/ui";
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -140,7 +140,6 @@ export default function AdminPOSSales() {
   const [productQ, setProductQ] = useState("");
 
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [returnTx, setReturnTx] = useState<SalesTx | null>(null);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const allTransactionsRef = useRef<SalesTx[]>([]);
@@ -395,24 +394,20 @@ export default function AdminPOSSales() {
                 tx={tx}
                 expanded={expanded === `${tx.type}-${tx.id}`}
                 onToggle={() => setExpanded(expanded === `${tx.type}-${tx.id}` ? null : `${tx.type}-${tx.id}`)}
-                onReturn={tx.type === "pos" ? () => setReturnTx(tx) : undefined}
               />
             ))}
           </div>
         )}
       </Card>
 
-      {returnTx && (
-        <ReturnModal tx={returnTx} onClose={() => setReturnTx(null)} />
-      )}
     </PageShell>
   );
 }
 
 // ── Transaction row ───────────────────────────────────────────────────────
 
-function TxRow({ tx, expanded, onToggle, onReturn }: {
-  tx: SalesTx; expanded: boolean; onToggle: () => void; onReturn?: () => void;
+function TxRow({ tx, expanded, onToggle }: {
+  tx: SalesTx; expanded: boolean; onToggle: () => void;
 }) {
   const isPOS = tx.type === "pos";
   const isReturned = tx.returned;
@@ -521,179 +516,9 @@ function TxRow({ tx, expanded, onToggle, onReturn }: {
             )}
           </div>
 
-          {onReturn && (
-            <div className="mt-3 flex justify-end">
-              <button
-                onClick={(e) => { e.stopPropagation(); onReturn(); }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition-colors"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Process Return
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>
   );
 }
 
-// ── Return Modal ──────────────────────────────────────────────────────────
-
-const PAYMENT_METHODS_RETURN = PAYMENT_METHODS_LIST;
-
-function ReturnModal({ tx, onClose }: { tx: SalesTx; onClose: () => void }) {
-  const sale = tx.raw as POSSale | undefined;
-  const [returnQtys, setReturnQtys] = useState<Record<number, number>>(
-    Object.fromEntries(tx.items.map((_, i) => [i, 0]))
-  );
-  const [reason, setReason] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState(tx.paymentMethod === "wholesale" ? "cash" : tx.paymentMethod);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<string | null>(null);
-
-  const returnItems: POSReturnItem[] = tx.items
-    .map((item, i) => {
-      const qty = returnQtys[i] || 0;
-      if (qty <= 0) return null;
-      const lineTotal = item.unitPrice * qty * (1 - (item.discountPct || 0) / 100);
-      return {
-        productId: item.productId ?? 0,
-        productName: item.productName,
-        sku: item.sku ?? "",
-        qty,
-        unitPrice: item.unitPrice,
-        discountPct: item.discountPct ?? 0,
-        lineTotal,
-      };
-    })
-    .filter(Boolean) as POSReturnItem[];
-
-  const totalRefund = returnItems.reduce((a, i) => a + i.lineTotal, 0);
-
-  async function submit() {
-    if (returnItems.length === 0) { setError("Select at least one item to return"); return; }
-    setSaving(true); setError(null);
-    try {
-      const result = await adminCreatePOSReturn({
-        saleId: tx.id,
-        saleNumber: sale?.saleNumber ?? tx.ref,
-        customerId: tx.customerId,
-        customerName: tx.customer,
-        items: returnItems,
-        totalRefund,
-        reason: reason.trim() || null,
-        paymentMethod,
-      });
-      setDone(result.returnNumber);
-    } catch (e: unknown) {
-      setError((e as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (done) {
-    return (
-      <Modal open onClose={onClose} title="Return Processed">
-        <div className="py-6 text-center space-y-3">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-            <RotateCcw className="h-7 w-7 text-emerald-600" />
-          </div>
-          <div className="text-lg font-bold text-ink-900">Return Successful</div>
-          <div className="font-mono text-sm font-semibold text-emerald-700">{done}</div>
-          <div className="text-sm text-ink-500">
-            Refund of <span className="font-bold text-ink-800">{fmtPrice(totalRefund)}</span> processed via <span className="capitalize font-medium">{paymentMethod}</span>.
-            Stock has been restocked automatically.
-          </div>
-        </div>
-        <div className="flex justify-center"><Btn onClick={onClose}>Close</Btn></div>
-      </Modal>
-    );
-  }
-
-  return (
-    <Modal open onClose={onClose} title={`Process Return — ${tx.ref}`} wide
-      footer={
-        <>
-          <Btn variant="secondary" onClick={onClose} disabled={saving}>Cancel</Btn>
-          <Btn onClick={submit} disabled={saving || returnItems.length === 0}>
-            {saving ? "Processing…" : `Refund ${fmtPrice(totalRefund)}`}
-          </Btn>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <ErrorBanner message={error} />
-
-        {tx.returned && (
-          <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-            <span>This sale already has a return ({tx.returnRefs.join(", ")}). Processing another return will further deduct from revenue.</span>
-          </div>
-        )}
-
-        <div className="text-xs text-ink-500">Customer: <span className="font-semibold text-ink-800">{tx.customer}</span></div>
-
-        <div className="rounded-xl border border-ink-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-ink-50">
-              <tr className="text-left text-[10px] font-semibold uppercase tracking-wider text-ink-400">
-                <th className="px-4 py-2">Product</th>
-                <th className="px-4 py-2 text-center">Sold</th>
-                <th className="px-4 py-2 text-center">Return Qty</th>
-                <th className="px-4 py-2 text-right">Refund</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ink-100">
-              {tx.items.map((item, i) => {
-                const qty = returnQtys[i] || 0;
-                const lineRefund = item.unitPrice * qty * (1 - (item.discountPct || 0) / 100);
-                return (
-                  <tr key={i} className={qty > 0 ? "bg-red-50" : ""}>
-                    <td className="px-4 py-2.5">
-                      <div className="font-medium text-ink-800">{item.productName}</div>
-                      {item.sku && <div className="text-[11px] text-ink-400">{item.sku}</div>}
-                    </td>
-                    <td className="px-4 py-2.5 text-center text-ink-500">{item.qty}</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <input type="number" min={0} max={item.qty} value={qty}
-                        onChange={(e) => setReturnQtys((p) => ({ ...p, [i]: Math.min(item.qty, Math.max(0, parseInt(e.target.value) || 0)) }))}
-                        className="w-16 rounded-md border border-ink-200 px-2 py-1 text-center text-sm focus:outline-none focus:ring-1 focus:ring-red-300"
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 text-right font-semibold text-red-600">
-                      {qty > 0 ? `-${fmtPrice(lineRefund)}` : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-            <tfoot className="bg-ink-50">
-              <tr>
-                <td colSpan={3} className="px-4 py-2 text-right text-sm font-bold text-ink-900">Total Refund</td>
-                <td className="px-4 py-2 text-right text-sm font-bold text-red-600">{fmtPrice(totalRefund)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <Field label="Refund via">
-          <div className="grid grid-cols-4 gap-1">
-            {PAYMENT_METHODS_RETURN.map((m) => (
-              <button key={m.key} type="button" onClick={() => setPaymentMethod(m.key)}
-                className={`rounded-lg py-2 text-xs font-semibold transition-colors ${paymentMethod === m.key ? "bg-brand-500 text-white shadow-sm" : "bg-ink-100 text-ink-600 hover:bg-ink-200"}`}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </Field>
-
-        <Field label="Reason (optional)">
-          <input className="input" placeholder="e.g. Defective product, wrong item…" value={reason} onChange={(e) => setReason(e.target.value)} />
-        </Field>
-      </div>
-    </Modal>
-  );
-}
