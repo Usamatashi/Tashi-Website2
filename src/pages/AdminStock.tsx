@@ -21,11 +21,13 @@ const CATEGORIES = [
 
 // ── Add new product form ──────────────────────────────────────────────────
 type AddForm = {
+  productId: number | null;
   productName: string; sku: string;
   quantity: string; minQuantity: string;
   costPrice: string; sellingPrice: string;
 };
 const emptyAdd = (): AddForm => ({
+  productId: null,
   productName: "", sku: "", quantity: "", minQuantity: "5", costPrice: "", sellingPrice: "",
 });
 
@@ -95,8 +97,7 @@ export default function AdminStock() {
     if (!addForm.productName.trim()) { setAddErr("Product name is required"); return; }
     setAddSaving(true);
     try {
-      // Use a synthetic productId based on timestamp
-      const productId = Date.now();
+      const productId = addForm.productId ?? Date.now();
       const created = await adminCreateStock({
         productId,
         productName: addForm.productName.trim(),
@@ -315,11 +316,39 @@ export default function AdminStock() {
         <div className="space-y-4">
           <ErrorBanner message={addErr} />
 
+          {/* Pick from existing product catalog */}
+          <Field label="Select from product catalog">
+            <select
+              autoFocus
+              value={addForm.productId ?? ""}
+              onChange={(e) => {
+                const pid = e.target.value ? Number(e.target.value) : null;
+                const prod = products.find((p) => p.id === pid);
+                setAddForm((f) => ({
+                  ...f,
+                  productId: pid,
+                  productName: prod ? prod.name : f.productName,
+                  sku: prod?.productNumber ?? f.sku,
+                  sellingPrice: prod?.salesPrice ? String(prod.salesPrice) : f.sellingPrice,
+                }));
+              }}
+              className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300">
+              <option value="">— Pick a product —</option>
+              {products
+                .filter((p) => !stock.some((s) => s.productId === p.id))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.productNumber ? ` (${p.productNumber})` : ""}
+                  </option>
+                ))}
+            </select>
+            <p className="mt-1 text-[11px] text-ink-400">Only shows products not yet in inventory. Or fill the fields below manually.</p>
+          </Field>
+
           <Field label="Product Name *">
             <input
-              autoFocus
               value={addForm.productName}
-              onChange={(e) => setAddForm((f) => ({ ...f, productName: e.target.value }))}
+              onChange={(e) => setAddForm((f) => ({ ...f, productName: e.target.value, productId: null }))}
               placeholder="e.g. Mark X 3.0 Brake Pads"
               className="mt-1 w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             />
