@@ -5,14 +5,31 @@ import {
   fileToBase64, formatPrice, type AdminProduct,
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Empty, Btn, Modal, Field, ErrorBanner, Card } from "@/components/admin/ui";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_CATEGORIES = ["disc_pad", "drum_shoe", "shoe_lining", "other"];
+
+type CatFilter = "all" | "disc_pad" | "brake_shoe" | "other";
+
+const CAT_BUTTONS: { value: CatFilter; label: string }[] = [
+  { value: "all",        label: "All Products"  },
+  { value: "disc_pad",   label: "Disc Pad"       },
+  { value: "brake_shoe", label: "Brake Shoe"     },
+  { value: "other",      label: "Other Products" },
+];
+
+function normalizeCat(cat: string): "disc_pad" | "brake_shoe" | "other" {
+  if (cat === "disc_pad") return "disc_pad";
+  if (["brake_shoes", "drum_shoe", "shoe_lining"].includes(cat)) return "brake_shoe";
+  return "other";
+}
 
 export default function AdminProducts() {
   const [items, setItems] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
+  const [catFilter, setCatFilter] = useState<CatFilter>("all");
+  const [vehicleFilter, setVehicleFilter] = useState<string | null>(null);
   const [editing, setEditing] = useState<AdminProduct | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -22,19 +39,31 @@ export default function AdminProducts() {
   }
   useEffect(() => { reload(); }, []);
 
-  const categories = useMemo(() => {
+  function handleCatChange(cat: CatFilter) {
+    setCatFilter(cat);
+    setVehicleFilter(null);
+  }
+
+  const catFiltered = useMemo(() => {
+    if (catFilter === "all") return items;
+    return items.filter((p) => normalizeCat(p.category) === catFilter);
+  }, [items, catFilter]);
+
+  const availableVehicles = useMemo(() => {
     const seen = new Set<string>();
-    for (const p of items) if (p.category) seen.add(p.category);
-    return Array.from(seen);
-  }, [items]);
+    for (const p of catFiltered) {
+      if (p.vehicleManufacturer?.trim()) seen.add(p.vehicleManufacturer.trim());
+    }
+    return Array.from(seen).sort();
+  }, [catFiltered]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return items.filter((p) =>
-      (!category || p.category === category) &&
+    return catFiltered.filter((p) =>
+      (!vehicleFilter || (p.vehicleManufacturer || "").trim() === vehicleFilter) &&
       (!q || p.name.toLowerCase().includes(q) || (p.productNumber || "").toLowerCase().includes(q) || (p.vehicleManufacturer || "").toLowerCase().includes(q)),
     );
-  }, [items, query, category]);
+  }, [catFiltered, vehicleFilter, query]);
 
   async function remove(id: number) {
     if (!confirm("Delete this product?")) return;
@@ -50,21 +79,43 @@ export default function AdminProducts() {
         actions={<Btn onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> New product</Btn>}
       />
 
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 sm:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-          <input className="input pl-9" placeholder="Search name / SKU / vehicle" value={query} onChange={(e) => setQuery(e.target.value)} />
-        </div>
-        <div className="flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm">
-          <Tag active={category === null} onClick={() => setCategory(null)}>All</Tag>
-          {categories.map((c) => (
-            <Tag key={c} active={category === c} onClick={() => setCategory(c)}>{labelFor(c)}</Tag>
+      {/* ── Category filter ── */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        {CAT_BUTTONS.map((btn) => (
+          <button
+            key={btn.value}
+            type="button"
+            onClick={() => handleCatChange(btn.value)}
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-semibold transition-all shadow-sm",
+              catFilter === btn.value
+                ? "bg-brand-500 text-white"
+                : "bg-white border border-ink-200 text-ink-700 hover:border-brand-400 hover:text-brand-700",
+            )}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Vehicle sub-filter ── */}
+      {availableVehicles.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          <VehicleTag active={vehicleFilter === null} onClick={() => setVehicleFilter(null)}>All Vehicles</VehicleTag>
+          {availableVehicles.map((v) => (
+            <VehicleTag key={v} active={vehicleFilter === v} onClick={() => setVehicleFilter(v)}>{v}</VehicleTag>
           ))}
         </div>
+      )}
+
+      {/* ── Search ── */}
+      <div className="mb-4 relative sm:max-w-sm">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+        <input className="input pl-9" placeholder="Search name / SKU / vehicle" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
 
       {loading ? <Loading /> : filtered.length === 0 ? (
-        <Empty icon={Package} title="No products" hint="Add your first product to get started." />
+        <Empty icon={Package} title="No products" hint="Try a different filter, or add your first product." />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => (
@@ -102,29 +153,23 @@ export default function AdminProducts() {
       )}
 
       {showNew && (
-        <ProductForm
-          onClose={() => setShowNew(false)}
-          onSaved={() => { setShowNew(false); reload(); }}
-        />
+        <ProductForm onClose={() => setShowNew(false)} onSaved={() => { setShowNew(false); reload(); }} />
       )}
       {editing && (
-        <ProductForm
-          existing={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); reload(); }}
-        />
+        <ProductForm existing={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />
       )}
     </PageShell>
   );
 }
 
-function Tag({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
+function VehicleTag({ active, children, onClick }: { active: boolean; children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-        active ? "bg-brand-500 text-white shadow-sm" : "text-ink-600 hover:bg-brand-50 hover:text-brand-700"
-      }`}
+      className={cn(
+        "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
+        active ? "bg-ink-800 text-white" : "bg-ink-100 text-ink-600 hover:bg-ink-200",
+      )}
     >{children}</button>
   );
 }
@@ -132,8 +177,9 @@ function Tag({ active, children, onClick }: { active: boolean; children: React.R
 function labelFor(c: string) {
   return ({
     disc_pad: "Disc Pad",
-    drum_shoe: "Drum Shoe",
-    shoe_lining: "Shoe Lining",
+    drum_shoe: "Brake Shoe",
+    shoe_lining: "Brake Shoe",
+    brake_shoes: "Brake Shoe",
     other: "Other",
   } as Record<string, string>)[c] || c;
 }
