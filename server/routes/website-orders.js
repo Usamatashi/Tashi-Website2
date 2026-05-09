@@ -288,7 +288,10 @@ router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
       if (String(data?.status || "").toLowerCase() === "cancelled") return;
       const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
       if (ct >= monthStart) {
-        websiteRevenue += toNumber(data?.total, 0);
+        const rawTotal = toNumber(data?.total, 0);
+        const rawSubtotal = toNumber(data?.subtotal, 0);
+        const itemsTotal = (data?.items || []).reduce((s, i) => s + toNumber(i?.lineTotal, 0), 0);
+        websiteRevenue += rawTotal > 0 ? rawTotal : (rawSubtotal > 0 ? rawSubtotal : itemsTotal);
       }
     });
     websiteRevenue = Math.round(websiteRevenue);

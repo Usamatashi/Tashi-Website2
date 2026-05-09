@@ -186,8 +186,8 @@ export default function AdminDashboard() {
           <div className="grid gap-4 sm:grid-cols-3">
             {[
               { label: "POS Sales", value: posRevenue, color: "bg-violet-500" },
-              { label: "Wholesale Orders", value: wholesaleRevenue, color: "bg-blue-500" },
-              { label: "Website Orders", value: websiteRevenue, color: "bg-emerald-500" },
+              { label: "Wholesale Sales", value: wholesaleRevenue, color: "bg-blue-500" },
+              { label: "Website Sales", value: websiteRevenue, color: "bg-emerald-500" },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-ink-100 p-4">
                 <div className="flex items-center gap-2">

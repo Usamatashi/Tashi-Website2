@@ -88,13 +88,16 @@ async function fetchWebsiteOrders(fromDate, toDate) {
       return { id: d.id, data, createdAt: ct };
     })
     .filter((o) => o.createdAt >= fromDate && o.createdAt <= toDate)
-    .map(({ id, data: o, createdAt }) => ({
+    .map(({ id, data: o, createdAt }) => {
+      const itemsTotal = (o.items || []).reduce((s, i) => s + toNum(i.lineTotal), 0);
+      const amount = toNum(o.total) > 0 ? toNum(o.total) : (toNum(o.subtotal) > 0 ? toNum(o.subtotal) : itemsTotal);
+      return {
       id,
       type: "website",
       ref: `WEB-${id.slice(0, 8).toUpperCase()}`,
       customer: o.customer?.name || "Online Customer",
       customerId: null,
-      amount: toNum(o.total),
+      amount,
       createdAt,
       paymentMethod: o.payment?.method || "cod",
       status: o.status || "pending",
@@ -107,7 +110,7 @@ async function fetchWebsiteOrders(fromDate, toDate) {
         sku: i.sku || "",
         productId: null,
       })),
-    }));
+    };});
 }
 
 async function fetchWholesaleOrders(fromDate, toDate) {
