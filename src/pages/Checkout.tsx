@@ -142,18 +142,28 @@ export default function Checkout() {
               </div>
             </div>
 
-            <div>
-              <h2 className="font-display text-xl font-bold text-ink-900">Delivery address</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Street address" required className="sm:col-span-2">
-                  <input
-                    type="text"
+            <div className="rounded-2xl border-2 border-brand-400 bg-brand-50 p-6">
+              <div className="mb-4 flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500 text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <h2 className="font-display text-xl font-bold text-ink-900">
+                  Shipping Address <span className="text-brand-500">*</span>
+                </h2>
+              </div>
+              <p className="mb-4 text-sm text-ink-600">
+                Please provide your complete address so we can deliver your order to the right location.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Full street address — house, street, area" required className="sm:col-span-2">
+                  <textarea
                     required
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     autoComplete="street-address"
-                    className="input"
-                    placeholder="House #, Street, Area"
+                    rows={3}
+                    className="input resize-none"
+                    placeholder="e.g. House #12, Street 5, Gulshan-e-Iqbal, Block 3"
                   />
                 </Field>
                 <Field label="City" required>
@@ -167,23 +177,23 @@ export default function Checkout() {
                     placeholder="e.g. Karachi"
                   />
                 </Field>
-                <Field label="Postal code">
+                <Field label="Postal code (optional)">
                   <input
                     type="text"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
                     autoComplete="postal-code"
                     className="input"
-                    placeholder="Optional"
+                    placeholder="e.g. 75300"
                   />
                 </Field>
-                <Field label="Order notes (optional)" className="sm:col-span-2">
-                  <textarea
+                <Field label="Landmark / delivery notes (optional)" className="sm:col-span-2">
+                  <input
+                    type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    className="input resize-none"
-                    placeholder="Landmark, vehicle model, or any special instructions"
+                    className="input"
+                    placeholder="e.g. Near Habib Bank, blue gate"
                   />
                 </Field>
               </div>

@@ -180,8 +180,13 @@ function RetailSection() {
                       <div className="font-medium text-ink-900">{o.customer.name || "—"}</div>
                       <div className="text-xs text-ink-500">{o.customer.phone}</div>
                     </td>
-                    <td className="hidden px-4 py-3 text-ink-600 lg:table-cell">
-                      {o.delivery.city || "—"}
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      <div className="font-medium text-ink-800">{o.delivery.city || "—"}</div>
+                      {o.delivery.address && (
+                        <div className="mt-0.5 max-w-[180px] truncate text-xs text-ink-500" title={o.delivery.address}>
+                          {o.delivery.address}
+                        </div>
+                      )}
                     </td>
                     <td className="hidden px-4 py-3 text-ink-500 md:table-cell">
                       {formatDate(o.createdAt)}

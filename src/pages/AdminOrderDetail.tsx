@@ -255,21 +255,28 @@ export default function AdminOrderDetail() {
               </ul>
             </InfoCard>
 
-            <InfoCard title="Delivery">
-              <div className="flex items-start gap-2 text-sm text-ink-700">
-                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand-500" />
-                <div>
-                  <div>{order.delivery.address}</div>
-                  <div>
-                    {order.delivery.city}
-                    {order.delivery.postalCode ? ` — ${order.delivery.postalCode}` : ""}
-                  </div>
-                  {order.delivery.notes && (
-                    <div className="mt-1 text-xs text-ink-500">Notes: {order.delivery.notes}</div>
-                  )}
-                </div>
+            <div className="rounded-2xl border-2 border-brand-400 bg-brand-50 p-5 shadow-sm">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-brand-500 flex-shrink-0" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-brand-700">Shipping Address</h3>
               </div>
-            </InfoCard>
+              <div className="mt-3 space-y-2 text-sm">
+                {order.delivery.address ? (
+                  <p className="font-semibold text-ink-900 leading-snug">{order.delivery.address}</p>
+                ) : (
+                  <p className="italic text-ink-400">No street address provided</p>
+                )}
+                <p className="text-ink-700">
+                  {order.delivery.city || "—"}
+                  {order.delivery.postalCode ? `, ${order.delivery.postalCode}` : ""}
+                </p>
+                {order.delivery.notes && (
+                  <p className="rounded-lg bg-white border border-brand-200 px-3 py-2 text-xs text-ink-600">
+                    <span className="font-semibold">Note:</span> {order.delivery.notes}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
