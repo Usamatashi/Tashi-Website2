@@ -24,43 +24,43 @@ const STAT_CARDS = (c: Counts) => [
   {
     to: "/admin/orders", icon: Package, label: "Website Orders",
     value: c.websiteOrders?.total ?? 0,
-    gradient: "from-slate-700 to-slate-900", iconBg: "bg-white/20",
+    accent: "border-t-slate-400", iconBg: "bg-slate-100", iconColor: "text-slate-600", valueColor: "text-slate-700",
   },
   {
     to: "/admin/orders", icon: Clock, label: "Pending Orders",
     value: c.websiteOrders?.pending ?? 0,
-    gradient: "from-amber-500 to-orange-600", iconBg: "bg-white/20",
+    accent: "border-t-amber-400", iconBg: "bg-amber-50", iconColor: "text-amber-600", valueColor: "text-amber-600",
     pulse: (c.websiteOrders?.pending ?? 0) > 0,
   },
   {
     to: "/admin/claims", icon: ShieldCheck, label: "Pending Claims",
     value: c.pendingClaims,
-    gradient: "from-blue-500 to-blue-700", iconBg: "bg-white/20",
+    accent: "border-t-blue-400", iconBg: "bg-blue-50", iconColor: "text-blue-600", valueColor: "text-blue-600",
   },
   {
     to: "/admin/payments", icon: Receipt, label: "Pending Payments",
     value: c.pendingPayments,
-    gradient: "from-emerald-500 to-teal-600", iconBg: "bg-white/20",
+    accent: "border-t-emerald-400", iconBg: "bg-emerald-50", iconColor: "text-emerald-600", valueColor: "text-emerald-600",
   },
   {
     to: "/admin/payments", icon: CircleDollarSign, label: "Retailer Outstanding",
     value: formatPrice(c.retailerOutstanding),
-    gradient: "from-rose-500 to-red-700", iconBg: "bg-white/20",
+    accent: "border-t-rose-400", iconBg: "bg-rose-50", iconColor: "text-rose-600", valueColor: "text-rose-600",
   },
   {
     to: "/admin/qr-codes", icon: QrCode, label: "QR Codes",
     value: c.qrTotal,
-    gradient: "from-violet-500 to-purple-700", iconBg: "bg-white/20",
+    accent: "border-t-violet-400", iconBg: "bg-violet-50", iconColor: "text-violet-600", valueColor: "text-violet-600",
   },
   {
     to: "/admin/ads", icon: Megaphone, label: "Active Ads",
     value: c.adsTotal,
-    gradient: "from-orange-500 to-amber-600", iconBg: "bg-white/20",
+    accent: "border-t-orange-400", iconBg: "bg-orange-50", iconColor: "text-orange-600", valueColor: "text-orange-600",
   },
   {
     to: "/admin/users", icon: UsersIcon, label: "Total Users",
     value: c.usersTotal,
-    gradient: "from-indigo-500 to-indigo-700", iconBg: "bg-white/20",
+    accent: "border-t-indigo-400", iconBg: "bg-indigo-50", iconColor: "text-indigo-600", valueColor: "text-indigo-600",
   },
 ];
 
@@ -153,20 +153,20 @@ export default function AdminDashboard() {
             <Link
               key={card.label}
               to={card.to}
-              className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-5 shadow-md transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col items-center justify-center text-center`}
+              className={`group relative flex flex-col items-center justify-center text-center overflow-hidden rounded-2xl bg-white border border-ink-100 border-t-4 ${card.accent} p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md`}
             >
               {card.pulse && (
                 <span className="absolute right-4 top-4 flex h-2.5 w-2.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-60" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-60" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-400" />
                 </span>
               )}
-              <div className={`inline-flex h-10 w-10 items-center justify-center rounded-xl ${card.iconBg} mb-4`}>
-                <card.icon className="h-5 w-5 text-white" />
+              <div className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconBg} mb-3`}>
+                <card.icon className={`h-5 w-5 ${card.iconColor}`} />
               </div>
-              <div className="text-[10px] font-semibold uppercase tracking-widest text-white/70">{card.label}</div>
-              <div className="mt-1 font-display text-2xl font-bold text-white">{card.value}</div>
-              <ArrowRight className="absolute bottom-4 right-4 h-4 w-4 text-white/30 transition-all group-hover:right-3 group-hover:text-white/60" />
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{card.label}</div>
+              <div className={`mt-1 font-display text-2xl font-bold ${card.valueColor}`}>{card.value}</div>
+              <ArrowRight className="absolute bottom-4 right-4 h-4 w-4 text-ink-200 transition-all group-hover:right-3 group-hover:text-ink-400" />
             </Link>
           ))}
         </div>
