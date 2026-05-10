@@ -172,41 +172,41 @@ export default function AdminDashboard() {
         </div>
 
         {/* Revenue breakdown */}
-        <div className="rounded-2xl border border-ink-100 bg-white p-6 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-100">
-              <TrendingUp className="h-5 w-5 text-emerald-600" />
-            </div>
+        <div className="overflow-hidden rounded-2xl shadow-lg">
+          {/* Total header */}
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-6 flex items-center justify-between">
             <div>
-              <h2 className="font-display text-base font-bold text-ink-900">This Month's Revenue</h2>
-              <p className="text-xs text-ink-500">POS sales + wholesale + website orders combined</p>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              { label: "POS Sales", value: posRevenue, color: "bg-violet-500" },
-              { label: "Wholesale Sales", value: wholesaleRevenue, color: "bg-blue-500" },
-              { label: "Website Sales", value: websiteRevenue, color: "bg-emerald-500" },
-            ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-ink-100 p-4">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${s.color}`} />
-                  <span className="text-xs font-medium text-ink-500">{s.label}</span>
-                </div>
-                <div className="mt-2 font-display text-2xl font-bold text-ink-900">{formatPrice(s.value)}</div>
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="h-4 w-4 text-emerald-100" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-100">This Month's Revenue</span>
               </div>
-            ))}
+              <div className="font-display text-4xl font-bold text-white">{formatPrice(revenue)}</div>
+              <p className="mt-1 text-xs text-emerald-100/80">POS + wholesale + website (dispatched only)</p>
+            </div>
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20">
+              <BarChart2 className="h-7 w-7 text-white" />
+            </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-4">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-widest text-emerald-100">Total This Month</div>
-              <div className="mt-0.5 font-display text-2xl font-bold text-white">{formatPrice(revenue)}</div>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20">
-              <BarChart2 className="h-6 w-6 text-white" />
-            </div>
+          {/* Three splits */}
+          <div className="grid grid-cols-3 divide-x divide-ink-100 bg-white">
+            {[
+              { label: "POS Sales", value: posRevenue, color: "bg-violet-500", text: "text-violet-600", light: "bg-violet-50", icon: "💜" },
+              { label: "Wholesale", value: wholesaleRevenue, color: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", icon: "🔵" },
+              { label: "Website", value: websiteRevenue, color: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50", icon: "🟢" },
+            ].map((s) => {
+              const pct = revenue > 0 ? Math.round((s.value / revenue) * 100) : 0;
+              return (
+                <div key={s.label} className="flex flex-col items-center justify-center px-4 py-5 gap-2">
+                  <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${s.light}`}>
+                    <span className={`h-3 w-3 rounded-full ${s.color}`} />
+                  </span>
+                  <span className="text-xs font-semibold text-ink-500 uppercase tracking-wide">{s.label}</span>
+                  <span className={`font-display text-xl font-bold ${s.text}`}>{formatPrice(s.value)}</span>
+                  <span className="text-[10px] font-medium text-ink-400">{pct}% of total</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
