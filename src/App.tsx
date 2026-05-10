@@ -41,6 +41,7 @@ const AdminSuppliers = lazy(() => import("@/pages/AdminSuppliers"));
 const AdminExpenses = lazy(() => import("@/pages/AdminExpenses"));
 const AdminPurchases = lazy(() => import("@/pages/AdminPurchases"));
 const AdminChartOfAccounts = lazy(() => import("@/pages/AdminChartOfAccounts"));
+const AdminAccountLedger = lazy(() => import("@/pages/AdminAccountLedger"));
 const AdminJournals = lazy(() => import("@/pages/AdminJournals"));
 const AdminCashBook = lazy(() => import("@/pages/AdminCashBook"));
 const AdminFinancialReports = lazy(() => import("@/pages/AdminFinancialReports"));
@@ -93,6 +94,7 @@ export default function App() {
             <Route path="expenses" element={<AdminExpenses />} />
             <Route path="purchases" element={<AdminPurchases />} />
             <Route path="chart-of-accounts" element={<AdminChartOfAccounts />} />
+            <Route path="accounts/:id" element={<AdminAccountLedger />} />
             <Route path="journals" element={<AdminJournals />} />
             <Route path="cash-book" element={<AdminCashBook />} />
             <Route path="financial-reports" element={<AdminFinancialReports />} />

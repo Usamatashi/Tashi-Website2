@@ -97,6 +97,85 @@ router.put("/:id", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ── GET /:id/ledger — all transactions touching this account ────────────────
+router.get("/:id/ledger", async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const accountRef = db.collection("accounts").doc(req.params.id);
+    const accountDoc = await accountRef.get();
+    if (!accountDoc.exists) return res.status(404).json({ error: "Account not found" });
+    const account = { id: accountDoc.id, ...accountDoc.data(), createdAt: toISOString(accountDoc.data().createdAt) };
+
+    const lines = [];
+
+    // 1. Journal entries where this account appears (posted only)
+    const journalSnap = await db.collection("journal_entries")
+      .where("accountIds", "array-contains", req.params.id)
+      .where("status", "==", "posted")
+      .get();
+
+    for (const d of journalSnap.docs) {
+      const entry = d.data();
+      if (from && entry.date < from) continue;
+      if (to   && entry.date > to)   continue;
+      for (const line of (entry.lines || [])) {
+        if (line.accountId !== req.params.id) continue;
+        lines.push({
+          id: `${d.id}-${line.accountCode}`,
+          date: entry.date,
+          source: "journal",
+          reference: entry.reference || d.id.slice(0, 8).toUpperCase(),
+          description: line.description || entry.description || "",
+          debit: Number(line.debit) || 0,
+          credit: Number(line.credit) || 0,
+          journalId: d.id,
+        });
+      }
+    }
+
+    // 2. Expenses matching this account's name (for expense-type accounts)
+    if (account.type === "expense") {
+      const expSnap = await db.collection("expenses").where("category", "==", account.name).get();
+      for (const d of expSnap.docs) {
+        const e = d.data();
+        const expDate = e.date || (e.createdAt?.toDate ? e.createdAt.toDate().toISOString().slice(0, 10) : null);
+        if (!expDate) continue;
+        if (from && expDate < from) continue;
+        if (to   && expDate > to)   continue;
+        lines.push({
+          id: `exp-${d.id}`,
+          date: expDate,
+          source: "expense",
+          reference: e.expenseNumber || `EXP-${d.id.slice(0, 6).toUpperCase()}`,
+          description: e.description || "",
+          debit: Number(e.amount) || 0,
+          credit: 0,
+          expenseId: d.id,
+        });
+      }
+    }
+
+    // Sort by date then reference
+    lines.sort((a, b) => a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference));
+
+    // Compute running balance (normal balance: debit for asset/expense, credit for liability/equity/revenue)
+    const normalDebit = ["asset", "expense"].includes(account.type);
+    let balance = 0;
+    const withBalance = lines.map((l) => {
+      balance += normalDebit ? (l.debit - l.credit) : (l.credit - l.debit);
+      return { ...l, runningBalance: balance };
+    });
+
+    const totalDebit  = lines.reduce((s, l) => s + l.debit, 0);
+    const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+
+    res.json({ account, lines: withBalance, totalDebit, totalCredit, closingBalance: balance });
+  } catch (err) {
+    console.error("account/ledger:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete("/:id", async (req, res) => {
   try {
     const ref = db.collection("accounts").doc(req.params.id);

@@ -716,6 +716,25 @@ export async function adminDeleteAccount(id: string) {
   return handle<{ success: true }>(await apiFetch(`/api/admin/accounts/${id}`, { method: "DELETE", credentials: "include" }));
 }
 
+// ── Account Ledger ────────────────────────────────────────────────────────
+export type LedgerLine = {
+  id: string; date: string; source: "journal" | "expense";
+  reference: string; description: string;
+  debit: number; credit: number; runningBalance: number;
+  journalId?: string; expenseId?: string;
+};
+export type AccountLedger = {
+  account: Account;
+  lines: LedgerLine[];
+  totalDebit: number; totalCredit: number; closingBalance: number;
+};
+export async function adminGetAccountLedger(id: string, params: { from?: string; to?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to)   q.set("to", params.to);
+  return handle<AccountLedger>(await apiFetch(`/api/admin/accounts/${id}/ledger?${q}`, j()));
+}
+
 // ── Journal Entries ───────────────────────────────────────────────────────
 export type JournalLine = {
   accountId: string; accountCode: string; accountName: string;

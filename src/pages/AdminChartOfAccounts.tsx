@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Edit2, Trash2, BookOpen, ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
 import {
   adminListAccounts, adminCreateAccount, adminUpdateAccount, adminDeleteAccount, adminSeedAccounts,
@@ -30,6 +31,7 @@ function subtypeLabel(s: string) {
 const BLANK_FORM = { code: "", name: "", type: "asset" as string, subtype: "", description: "", isActive: true };
 
 export default function AdminChartOfAccounts() {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading]   = useState(true);
   const [seeding, setSeeding]   = useState(false);
@@ -185,7 +187,10 @@ export default function AdminChartOfAccounts() {
                               <span className={`font-mono text-sm font-bold ${m.color}`}>{a.code}</span>
                             </td>
                             <td className="px-4 py-3">
-                              <div className="font-medium text-ink-800">{a.name}</div>
+                              <button onClick={() => navigate(`/admin/accounts/${a.id}`)}
+                                className="text-left hover:underline focus:outline-none">
+                                <div className={`font-medium ${m.color} hover:opacity-80`}>{a.name}</div>
+                              </button>
                               {a.description && <div className="text-[11px] text-ink-400">{a.description}</div>}
                             </td>
                             <td className="px-4 py-3">
