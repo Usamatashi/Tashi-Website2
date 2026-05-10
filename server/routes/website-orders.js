@@ -217,9 +217,11 @@ async function handleWebsiteStats(_req, res) {
       if (s === "dispatched") counts.revenue += toNumber(data?.total, 0);
     });
 
-    // Add wholesale pending & confirmed separately
+    // Add wholesale pending & confirmed separately (exclude website-sourced orders)
     wholesaleSnap.docs.forEach((d) => {
-      const s = String(d.data()?.status || "pending").toLowerCase();
+      const data = d.data();
+      if (data?.source === "website") return;
+      const s = String(data?.status || "pending").toLowerCase();
       if (s === "pending") counts.pending += 1;
       else if (s === "confirmed") counts.confirmed += 1;
     });
