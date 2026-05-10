@@ -174,13 +174,13 @@ export default function AdminDashboard() {
         {/* Revenue breakdown */}
         <div className="overflow-hidden rounded-2xl shadow-lg">
           {/* Total header */}
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-6 flex flex-col items-center justify-center text-center">
+          <div className="bg-gradient-to-r from-brand-500 to-brand-700 px-6 py-6 flex flex-col items-center justify-center text-center">
             <div className="flex items-center gap-2 mb-1">
               <TrendingUp className="h-4 w-4 text-white/80" />
-              <span className="text-xs font-semibold uppercase tracking-widest text-black/80">This Month's Revenue</span>
+              <span className="text-xs font-semibold uppercase tracking-widest text-white/80">This Month's Revenue</span>
             </div>
             <div className="font-display text-4xl font-bold text-white">{formatPrice(revenue)}</div>
-            <p className="mt-1 text-xs text-black/60">POS + wholesale + website (dispatched only)</p>
+            <p className="mt-1 text-xs text-white/60">POS + wholesale + website (dispatched only)</p>
           </div>
 
           {/* Three splits */}
