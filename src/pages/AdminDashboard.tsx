@@ -153,7 +153,7 @@ export default function AdminDashboard() {
             <Link
               key={card.label}
               to={card.to}
-              className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-5 shadow-md transition-all hover:-translate-y-1 hover:shadow-xl`}
+              className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-5 shadow-md transition-all hover:-translate-y-1 hover:shadow-xl flex flex-col items-center justify-center text-center`}
             >
               {card.pulse && (
                 <span className="absolute right-4 top-4 flex h-2.5 w-2.5">

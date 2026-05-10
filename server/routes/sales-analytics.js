@@ -84,6 +84,7 @@ async function fetchWebsiteOrders(fromDate, toDate) {
   const results = [];
   for (const d of snap.docs) {
     const data = d.data();
+    if (String(data?.status || "").toLowerCase() !== "dispatched") continue;
     const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
     if (ct < fromDate || ct > toDate) continue;
     const itemsTotal = (data.items || []).reduce((s, i) => s + toNum(i.lineTotal), 0);
