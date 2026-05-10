@@ -2,15 +2,11 @@ import { useEffect, useState } from "react";
 import { Receipt, Plus, Pencil, Trash2, TrendingDown, Filter, CreditCard, Banknote } from "lucide-react";
 import {
   adminListExpenses, adminCreateExpense, adminUpdateExpense, adminDeleteExpense,
-  adminListSuppliers, formatPrice, formatDate,
-  type Expense, type Supplier,
+  adminListSuppliers, adminListAccounts, formatPrice, formatDate,
+  type Expense, type Supplier, type Account,
 } from "@/lib/admin";
 import { PageHeader, PageShell, Loading, Card, Empty, Modal, Btn, Field, ErrorBanner } from "@/components/admin/ui";
 
-const DEFAULT_CATEGORIES = [
-  "Rent", "Utilities", "Salaries", "Marketing", "Office Supplies",
-  "Travel", "Maintenance", "Insurance", "Miscellaneous", "Other",
-];
 const PAYMENT_METHODS = ["cash", "bank_transfer", "cheque", "card"];
 const CATEGORY_COLORS: Record<string, string> = {
   Rent: "bg-violet-100 text-violet-700",
@@ -25,6 +21,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   Other: "bg-ink-100 text-ink-600",
 };
 
+function subtypeLabel(s: string) {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function monthStartISO() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1).toISOString().slice(0, 10); }
 function categoryColor(cat: string) { return CATEGORY_COLORS[cat] ?? "bg-brand-100 text-brand-700"; }
@@ -32,16 +32,17 @@ function categoryColor(cat: string) { return CATEGORY_COLORS[cat] ?? "bg-brand-1
 type Form = {
   category: string; amount: string; description: string; date: string;
   supplierId: string; supplierName: string; paymentMethod: string;
-  isCredit: boolean; notes: string;
+  isCredit: boolean;
 };
 const emptyForm = (): Form => ({
-  category: "Other", amount: "", description: "", date: todayISO(),
-  supplierId: "", supplierName: "", paymentMethod: "cash", isCredit: false, notes: "",
+  category: "", amount: "", description: "", date: todayISO(),
+  supplierId: "", supplierName: "", paymentMethod: "cash", isCredit: false,
 });
 
 export default function AdminExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [from, setFrom] = useState(monthStartISO());
   const [to, setTo] = useState(todayISO());
@@ -52,13 +53,23 @@ export default function AdminExpenses() {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Collect all known categories (defaults + any custom ones already in use)
+  // Expense accounts from Chart of Accounts, grouped by subtype
+  const expenseAccounts = accounts.filter((a) => a.type === "expense" && a.isActive);
+  const accountsBySubtype = expenseAccounts.reduce<Record<string, Account[]>>((acc, a) => {
+    const key = a.subtype || "other";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(a);
+    return acc;
+  }, {});
+
+  // All known categories for the filter bar (from existing expenses + COA names)
   const usedCategories = [...new Set(expenses.map((e) => e.category))];
-  const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...usedCategories])].sort();
+  const coaNames = expenseAccounts.map((a) => a.name);
+  const allCategories = [...new Set([...usedCategories, ...coaNames])].sort();
 
   useEffect(() => {
-    Promise.all([adminListExpenses(), adminListSuppliers()])
-      .then(([e, s]) => { setExpenses(e); setSuppliers(s); })
+    Promise.all([adminListExpenses(), adminListSuppliers(), adminListAccounts()])
+      .then(([e, s, a]) => { setExpenses(e); setSuppliers(s); setAccounts(a); })
       .finally(() => setLoading(false));
   }, []);
 
@@ -68,7 +79,7 @@ export default function AdminExpenses() {
     setForm({
       category: e.category, amount: String(e.amount), description: e.description || "",
       date: e.date, supplierId: e.supplierId || "", supplierName: e.supplierName || "",
-      paymentMethod: e.paymentMethod || "cash", isCredit: !!e.isCredit, notes: e.notes || "",
+      paymentMethod: e.paymentMethod || "cash", isCredit: !!e.isCredit,
     });
     setErr(null);
     setShowForm(true);
@@ -243,18 +254,25 @@ export default function AdminExpenses() {
           </label>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            {/* Category — free-text with datalist suggestions */}
-            <Field label="Category *">
-              <input
-                list="expense-categories"
+            {/* Account — from Chart of Accounts (expense type) */}
+            <Field label="Account *">
+              <select
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="Select or type a category"
                 className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-              />
-              <datalist id="expense-categories">
-                {allCategories.map((c) => <option key={c} value={c} />)}
-              </datalist>
+              >
+                <option value="">— Select account —</option>
+                {Object.entries(accountsBySubtype).map(([subtype, accs]) => (
+                  <optgroup key={subtype} label={subtypeLabel(subtype)}>
+                    {accs.map((a) => (
+                      <option key={a.id} value={a.name}>{a.code} — {a.name}</option>
+                    ))}
+                  </optgroup>
+                ))}
+                {expenseAccounts.length === 0 && (
+                  <option disabled>No expense accounts — add them in Chart of Accounts</option>
+                )}
+              </select>
             </Field>
             <Field label="Amount (PKR) *">
               <input type="number" min="0" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0"
@@ -305,10 +323,6 @@ export default function AdminExpenses() {
             </Field>
           )}
 
-          <Field label="Notes">
-            <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2}
-              className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 resize-none" />
-          </Field>
         </div>
       </Modal>
     </PageShell>
