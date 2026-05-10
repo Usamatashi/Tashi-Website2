@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Check, XCircle, ChevronDown, ChevronRight, BookOpen, AlertTriangle, Sparkles } from "lucide-react";
+import { FormDateInput } from "@/components/admin/DateRangeFilter";
 import {
   adminListJournals, adminCreateJournal, adminUpdateJournal, adminPostJournal, adminVoidJournal,
   adminDeleteJournal, adminListAccounts, adminGenerateMonthlyJournals, formatPrice, formatDate,
@@ -287,8 +288,7 @@ export default function AdminJournals() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Date *">
-              <input type="date" className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-                value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} />
+              <FormDateInput value={form.date} onChange={(v) => setForm((p) => ({ ...p, date: v }))} />
             </Field>
             <Field label="Reference">
               <input className="mt-1 w-full rounded-md border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"

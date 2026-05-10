@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { FileText, TrendingUp, TrendingDown, Scale, BarChart2, Calendar, RefreshCw } from "lucide-react";
+import { FileText, TrendingUp, TrendingDown, Scale, BarChart2, RefreshCw } from "lucide-react";
+import { DateRangeFilter, SingleDateFilter } from "@/components/admin/DateRangeFilter";
 import {
   adminGetPL, adminGetBalanceSheet, adminGetTrialBalance,
   formatPrice, type PLReport, type BalanceSheet, type TrialBalance,
@@ -94,25 +95,19 @@ export default function AdminFinancialReports() {
       {/* Date controls */}
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-3 p-4">
-          <Calendar className="h-4 w-4 text-ink-400" />
           {tab === "pl" ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-ink-500">From</span>
-              <input type="date" value={from} max={to}
-                onChange={(e) => setFrom(e.target.value)}
-                className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-              <span className="text-xs font-medium text-ink-500">To</span>
-              <input type="date" value={to} min={from} max={todayISO()}
-                onChange={(e) => setTo(e.target.value)}
-                className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-            </div>
+            <DateRangeFilter
+              from={from} to={to}
+              onFromChange={setFrom} onToChange={setTo}
+              maxDate={todayISO()}
+            />
           ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-medium text-ink-500">As of</span>
-              <input type="date" value={asOf} max={todayISO()}
-                onChange={(e) => setAsOf(e.target.value)}
-                className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-            </div>
+            <SingleDateFilter
+              label="As of"
+              value={asOf}
+              onChange={setAsOf}
+              max={todayISO()}
+            />
           )}
           <Btn variant="secondary" onClick={() => { if (tab === "pl") loadPL(); else if (tab === "balance_sheet") loadBS(); else loadTB(); }}>
             <RefreshCw className="h-4 w-4" />Generate

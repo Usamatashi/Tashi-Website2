@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ArrowDownCircle, ArrowUpCircle, Wallet, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Wallet, TrendingUp, TrendingDown } from "lucide-react";
+import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
 import {
   adminGetCashBook, formatPrice, type CashBookEntry,
 } from "@/lib/admin";
@@ -74,17 +75,12 @@ export default function AdminCashBook() {
       {/* Filters */}
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-3 p-4">
-          <Calendar className="h-4 w-4 text-ink-400 flex-shrink-0" />
-          <div className="flex items-center gap-1.5 text-sm">
-            <span className="text-xs font-medium text-ink-500">From</span>
-            <input type="date" value={from} max={to}
-              onChange={(e) => { setFrom(e.target.value); load(e.target.value, to); }}
-              className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-            <span className="text-xs font-medium text-ink-500">To</span>
-            <input type="date" value={to} min={from} max={todayISO()}
-              onChange={(e) => { setTo(e.target.value); load(from, e.target.value); }}
-              className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-          </div>
+          <DateRangeFilter
+            from={from} to={to}
+            onFromChange={(v) => { setFrom(v); load(v, to); }}
+            onToChange={(v) => { setTo(v); load(from, v); }}
+            maxDate={todayISO()}
+          />
           <div className="flex flex-wrap gap-1 ml-2">
             <button onClick={() => setSourceFilter("all")}
               className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${sourceFilter === "all" ? "bg-brand-600 text-white" : "bg-ink-100 text-ink-600 hover:bg-ink-200"}`}>

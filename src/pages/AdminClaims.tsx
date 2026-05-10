@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Search, Check, X, ArrowLeft, Calendar } from "lucide-react";
+import { ShieldCheck, Search, Check, X, ArrowLeft } from "lucide-react";
+import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
 import {
   adminListClaims, adminClaimScans, adminVerifyQRForClaim, adminMarkScanMissing, adminMarkClaimReceived,
   type Claim, type ClaimScan, formatDate,
@@ -109,32 +110,10 @@ export default function AdminClaims() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-ink-400 flex-shrink-0" />
-          <input
-            type="date"
-            className="input text-sm"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            title="From date"
-          />
-          <span className="text-ink-400 text-xs">to</span>
-          <input
-            type="date"
-            className="input text-sm"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            title="To date"
-          />
-          {(dateFrom || dateTo) && (
-            <button
-              onClick={() => { setDateFrom(""); setDateTo(""); }}
-              className="text-xs text-ink-400 hover:text-red-500 underline"
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        <DateRangeFilter
+          from={dateFrom} to={dateTo}
+          onFromChange={setDateFrom} onToChange={setDateTo}
+        />
 
         <span className="text-xs text-ink-500 ml-auto">{filtered.length} claim{filtered.length === 1 ? "" : "s"}</span>
       </div>

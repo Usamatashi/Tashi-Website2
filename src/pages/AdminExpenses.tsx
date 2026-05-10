@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Receipt, Plus, Pencil, Trash2, TrendingDown, Filter, CreditCard, Banknote } from "lucide-react";
+import { DateRangeFilter, FormDateInput } from "@/components/admin/DateRangeFilter";
 import {
   adminListExpenses, adminCreateExpense, adminUpdateExpense, adminDeleteExpense,
   adminListSuppliers, adminListAccounts, formatPrice, formatDate,
@@ -179,14 +180,10 @@ export default function AdminExpenses() {
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
         <Filter className="h-4 w-4 text-ink-400 flex-shrink-0" />
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs text-ink-500">From</span>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} max={to}
-            className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-          <span className="text-xs text-ink-500">To</span>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} min={from}
-            className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-        </div>
+        <DateRangeFilter
+          from={from} to={to}
+          onFromChange={setFrom} onToChange={setTo}
+        />
         <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
           className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300">
           <option value="">All Categories</option>
@@ -282,8 +279,7 @@ export default function AdminExpenses() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Date *">
-              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+              <FormDateInput value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
             </Field>
             {!form.isCredit && (
               <Field label="Payment Method">

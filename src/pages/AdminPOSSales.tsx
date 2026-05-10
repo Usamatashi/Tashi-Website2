@@ -4,9 +4,10 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import {
-  TrendingUp, Calendar, Search, X, ChevronDown, ChevronRight,
+  TrendingUp, Search, X, ChevronDown, ChevronRight,
   ShoppingBag, Package, RotateCcw, Layers,
 } from "lucide-react";
+import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
 import {
   adminGetSalesAnalytics, adminGetSalesAutocompleteOptions,
   formatPrice, formatDate,
@@ -212,14 +213,11 @@ export default function AdminPOSSales() {
             ))}
           </div>
 
-          <div className="flex items-center gap-1.5 text-sm">
-            <span className="text-xs font-medium text-ink-500">From</span>
-            <input type="date" value={from} onChange={(e) => handleFrom(e.target.value)} max={to}
-              className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-            <span className="text-xs font-medium text-ink-500">To</span>
-            <input type="date" value={to} onChange={(e) => handleTo(e.target.value)} min={from} max={todayISO()}
-              className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-          </div>
+          <DateRangeFilter
+            from={from} to={to}
+            onFromChange={handleFrom} onToChange={handleTo}
+            maxDate={todayISO()}
+          />
 
           <AutocompleteInput
             value={customerQ}

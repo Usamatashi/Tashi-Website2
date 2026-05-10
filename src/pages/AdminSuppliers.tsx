@@ -3,6 +3,7 @@ import {
   Truck, Plus, Pencil, Trash2, Phone, Mail, MapPin,
   CreditCard, TrendingDown, ShoppingCart, Banknote, X, Loader2,
 } from "lucide-react";
+import { FormDateInput } from "@/components/admin/DateRangeFilter";
 import {
   adminListSuppliers, adminCreateSupplier, adminUpdateSupplier, adminDeleteSupplier,
   adminGetSupplierCreditSummary, adminCreateCreditPayment, adminDeleteCreditPayment,
@@ -360,8 +361,7 @@ export default function AdminSuppliers() {
                       </select>
                     </Field>
                     <Field label="Date">
-                      <input type="date" value={payForm.date} onChange={(e) => setPayForm({ ...payForm, date: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300" />
+                      <FormDateInput value={payForm.date} onChange={(v) => setPayForm({ ...payForm, date: v })} />
                     </Field>
                   </div>
                   <Field label="Notes">

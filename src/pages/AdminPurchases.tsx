@@ -3,6 +3,7 @@ import {
   ShoppingCart, Plus, Trash2, ChevronDown, ChevronRight, RotateCcw,
   CheckCircle2, Clock, AlertCircle, SlidersHorizontal, X, Search,
 } from "lucide-react";
+import { DateRangeFilter, FormDateInput } from "@/components/admin/DateRangeFilter";
 import {
   adminListPurchases, adminCreatePurchase, adminUpdatePurchase, adminDeletePurchase,
   adminListPurchaseReturns, adminCreatePurchaseReturn,
@@ -322,15 +323,12 @@ export default function AdminPurchases() {
             )}
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-400">From date</label>
-              <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)}
-                className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
-            </div>
-            <div>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-400">To date</label>
-              <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)}
-                className="w-full rounded-xl border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+            <div className="sm:col-span-2">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-400">Date range</label>
+              <DateRangeFilter
+                from={filterDateFrom} to={filterDateTo}
+                onFromChange={setFilterDateFrom} onToChange={setFilterDateTo}
+              />
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-ink-400">Product</label>
@@ -498,8 +496,7 @@ export default function AdminPurchases() {
               </select>
             </Field>
             <Field label="Date">
-              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+              <FormDateInput value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
             </Field>
           </div>
           <Field label="Payment Status">
@@ -607,8 +604,7 @@ export default function AdminPurchases() {
               </select>
             </Field>
             <Field label="Date">
-              <input type="date" value={freeReturnForm.date} onChange={(e) => setFreeReturnForm({ ...freeReturnForm, date: e.target.value })}
-                className="mt-1 w-full rounded-lg border border-ink-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300" />
+              <FormDateInput value={freeReturnForm.date} onChange={(v) => setFreeReturnForm({ ...freeReturnForm, date: v })} />
             </Field>
           </div>
 

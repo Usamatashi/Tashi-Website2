@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { ArrowLeft, BookOpen, Filter, FileText, Receipt } from "lucide-react";
+import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
 import {
   adminGetAccountLedger, formatPrice, formatDate,
   type AccountLedger, type LedgerLine,
@@ -88,14 +89,10 @@ export default function AdminAccountLedger() {
       {/* Date filter */}
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-ink-200 bg-white p-4 shadow-sm">
         <Filter className="h-4 w-4 text-ink-400 flex-shrink-0" />
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-ink-500">From</span>
-          <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
-            className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-          <span className="text-xs text-ink-500">To</span>
-          <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)}
-            className="rounded-lg border border-ink-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-300" />
-        </div>
+        <DateRangeFilter
+          from={from} to={to}
+          onFromChange={setFrom} onToChange={setTo}
+        />
         {loading && <span className="text-xs text-ink-400 animate-pulse">Loading…</span>}
       </div>
 
