@@ -109,7 +109,12 @@ router.post("/:id/mark-missing", requireAdmin, async (req, res) => {
     const newVerifiedPoints = allScansSnap.docs
       .filter((d) => d.data().adminVerified === true && d.id !== String(scanId))
       .reduce((sum, d) => sum + (d.data().pointsEarned || 0), 0);
-    await fdb.collection("claims").doc(String(claimId)).update({ verifiedPoints: newVerifiedPoints });
+    const claimRef = fdb.collection("claims").doc(String(claimId));
+    const claimDoc = await claimRef.get();
+    const currentStatus = claimDoc.data()?.status || "pending";
+    const update = { verifiedPoints: newVerifiedPoints };
+    if (currentStatus !== "received") update.status = "missing";
+    await claimRef.update(update);
     res.json({ scanId, verifiedPoints: newVerifiedPoints });
   } catch (err) {
     console.error(err);
@@ -124,6 +129,7 @@ router.patch("/:id", requireAdmin, async (req, res) => {
     const ref = fdb.collection("claims").doc(String(claimId));
     const doc = await ref.get();
     if (!doc.exists) return res.status(404).json({ error: "Claim not found" });
+    if (doc.data()?.status === "received") return res.status(400).json({ error: "Claim is already received" });
     await ref.update({ status: "received" });
     const updated = { ...doc.data(), status: "received" };
     res.json({
