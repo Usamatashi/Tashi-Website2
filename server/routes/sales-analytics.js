@@ -227,8 +227,15 @@ router.get("/", async (req, res) => {
       return { ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount };
     });
 
-    const markedWS = rawWS.map((s) => ({ ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount }));
-    const markedWeb = rawWeb.map((s) => ({ ...s, returned: false, returnRefs: [], refundedAmount: 0, netAmount: s.amount }));
+    // Wholesale & website: only "dispatched" orders count as revenue
+    const markedWS = rawWS.map((s) => ({
+      ...s, returned: false, returnRefs: [], refundedAmount: 0,
+      netAmount: s.status === "dispatched" ? s.amount : 0,
+    }));
+    const markedWeb = rawWeb.map((s) => ({
+      ...s, returned: false, returnRefs: [], refundedAmount: 0,
+      netAmount: s.status === "dispatched" ? s.amount : 0,
+    }));
 
     let allSales = [...markedPOS, ...markedWS, ...markedWeb].sort((a, b) => b.createdAt - a.createdAt);
 

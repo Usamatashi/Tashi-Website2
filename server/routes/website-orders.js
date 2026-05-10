@@ -209,7 +209,7 @@ async function handleWebsiteStats(_req, res) {
       counts.total += 1;
       const s = String(data?.status || "pending").toLowerCase();
       if (counts[s] !== undefined) counts[s] += 1;
-      if (s !== "cancelled") counts.revenue += toNumber(data?.total, 0);
+      if (s === "dispatched") counts.revenue += toNumber(data?.total, 0);
     });
     counts.revenue = Math.round(counts.revenue);
     res.json(counts);
@@ -250,7 +250,7 @@ router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
     const ordersSnap = await db.collection("orders").get();
     const wholesaleMonth = ordersSnap.docs.filter((d) => {
       const data = d.data();
-      if (String(data?.status || "").toLowerCase() === "cancelled") return false;
+      if (String(data?.status || "").toLowerCase() !== "dispatched") return false;
       const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
       return ct >= monthStart;
     });
@@ -280,12 +280,12 @@ router.get("/admin/month-revenue", requireAdmin, async (_req, res) => {
       }
     }
 
-    // Website (retail) orders revenue this month
+    // Website (retail) orders revenue this month — only dispatched
     const retailSnap = await db.collection(RETAIL_COL).get();
     let websiteRevenue = 0;
     retailSnap.forEach((d) => {
       const data = d.data();
-      if (String(data?.status || "").toLowerCase() === "cancelled") return;
+      if (String(data?.status || "").toLowerCase() !== "dispatched") return;
       const ct = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt || 0);
       if (ct >= monthStart) {
         const rawTotal = toNumber(data?.total, 0);
