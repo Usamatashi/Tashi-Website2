@@ -202,15 +202,27 @@ router.patch("/admin/orders/:id", requireAdmin, handleUpdateOrder);
 // ── Admin: stats for dashboard ────────────────────────────────────────────
 async function handleWebsiteStats(_req, res) {
   try {
-    const snap = await db.collection(RETAIL_COL).get();
+    const [retailSnap, wholesaleSnap] = await Promise.all([
+      db.collection(RETAIL_COL).get(),
+      db.collection("orders").get(),
+    ]);
+
     const counts = { total: 0, pending: 0, dispatched: 0, cancelled: 0, revenue: 0 };
-    snap.docs.forEach((d) => {
+
+    retailSnap.docs.forEach((d) => {
       const data = d.data();
       counts.total += 1;
       const s = String(data?.status || "pending").toLowerCase();
       if (counts[s] !== undefined) counts[s] += 1;
       if (s === "dispatched") counts.revenue += toNumber(data?.total, 0);
     });
+
+    // Add wholesale pending (pending + confirmed = not yet dispatched)
+    wholesaleSnap.docs.forEach((d) => {
+      const s = String(d.data()?.status || "pending").toLowerCase();
+      if (s === "pending" || s === "confirmed") counts.pending += 1;
+    });
+
     counts.revenue = Math.round(counts.revenue);
     res.json(counts);
   } catch (err) {
