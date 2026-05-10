@@ -79,7 +79,7 @@ export default function AdminClaims() {
       <PageHeader title="Claims" subtitle={`${claims.length} total`} />
 
       {/* Status filter tabs */}
-      <div className="mb-4 flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm w-fit">
+      <div className="mb-4 flex flex-wrap gap-1.5 rounded-full border border-ink-200 bg-white p-1 shadow-sm w-fit mx-auto">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.value}
