@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Package, Clock, ShieldCheck, Receipt, QrCode, Megaphone, Type, Users as UsersIcon,
-  CircleDollarSign, ArrowRight, TrendingUp, Zap, BarChart2,
+  CircleDollarSign, ArrowRight, TrendingUp, Zap,
 } from "lucide-react";
 import {
   adminGetStats, adminGetMonthRevenue, adminListClaims, adminPendingPaymentCount,
@@ -174,35 +174,30 @@ export default function AdminDashboard() {
         {/* Revenue breakdown */}
         <div className="overflow-hidden rounded-2xl shadow-lg">
           {/* Total header */}
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-6 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <TrendingUp className="h-4 w-4 text-emerald-100" />
-                <span className="text-xs font-semibold uppercase tracking-widest text-emerald-100">This Month's Revenue</span>
-              </div>
-              <div className="font-display text-4xl font-bold text-white">{formatPrice(revenue)}</div>
-              <p className="mt-1 text-xs text-emerald-100/80">POS + wholesale + website (dispatched only)</p>
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 px-6 py-6 flex flex-col items-center justify-center text-center">
+            <div className="flex items-center gap-2 mb-1">
+              <TrendingUp className="h-4 w-4 text-emerald-100" />
+              <span className="text-xs font-semibold uppercase tracking-widest text-emerald-100">This Month's Revenue</span>
             </div>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20">
-              <BarChart2 className="h-7 w-7 text-white" />
-            </div>
+            <div className="font-display text-4xl font-bold text-white">{formatPrice(revenue)}</div>
+            <p className="mt-1 text-xs text-emerald-100/80">POS + wholesale + website (dispatched only)</p>
           </div>
 
           {/* Three splits */}
           <div className="grid grid-cols-3 divide-x divide-ink-100 bg-white">
             {[
-              { label: "POS Sales", value: posRevenue, color: "bg-violet-500", text: "text-violet-600", light: "bg-violet-50", icon: "💜" },
-              { label: "Wholesale", value: wholesaleRevenue, color: "bg-blue-500", text: "text-blue-600", light: "bg-blue-50", icon: "🔵" },
-              { label: "Website", value: websiteRevenue, color: "bg-emerald-500", text: "text-emerald-600", light: "bg-emerald-50", icon: "🟢" },
+              { label: "POS Sales", value: posRevenue, color: "bg-brand-100", dot: "bg-brand-400" },
+              { label: "Wholesale", value: wholesaleRevenue, color: "bg-brand-100", dot: "bg-brand-400" },
+              { label: "Website", value: websiteRevenue, color: "bg-brand-100", dot: "bg-brand-400" },
             ].map((s) => {
               const pct = revenue > 0 ? Math.round((s.value / revenue) * 100) : 0;
               return (
                 <div key={s.label} className="flex flex-col items-center justify-center px-4 py-5 gap-2">
-                  <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${s.light}`}>
-                    <span className={`h-3 w-3 rounded-full ${s.color}`} />
+                  <span className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${s.color}`}>
+                    <span className={`h-3 w-3 rounded-full ${s.dot}`} />
                   </span>
                   <span className="text-xs font-semibold text-ink-500 uppercase tracking-wide">{s.label}</span>
-                  <span className={`font-display text-xl font-bold ${s.text}`}>{formatPrice(s.value)}</span>
+                  <span className="font-display text-xl font-bold text-brand-500">{formatPrice(s.value)}</span>
                   <span className="text-[10px] font-medium text-ink-400">{pct}% of total</span>
                 </div>
               );
