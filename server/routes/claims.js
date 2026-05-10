@@ -34,15 +34,20 @@ router.get("/", requireAdmin, async (_req, res) => {
 
     res.json(claims.map((c) => {
       const user = userMap.get(c.userId);
+      const missingScans = scanCountMap[c.id]?.missing || 0;
+      const storedStatus = String(c.status || "pending").toLowerCase();
+      const effectiveStatus =
+        storedStatus === "received" ? "received" :
+        missingScans > 0           ? "missing"  : "pending";
       return {
         id: c.id, pointsClaimed: c.pointsClaimed, verifiedPoints: c.verifiedPoints,
         unverifiedPoints: (c.pointsClaimed || 0) - (c.verifiedPoints || 0),
-        status: c.status, claimedAt: toISOString(c.claimedAt),
+        status: effectiveStatus, claimedAt: toISOString(c.claimedAt),
         userName: user?.name || "", userPhone: user?.phone || null,
         userRole: user?.role || "", userId: c.userId,
         totalScans: scanCountMap[c.id]?.total || 0,
         verifiedScans: scanCountMap[c.id]?.verified || 0,
-        missingScans: scanCountMap[c.id]?.missing || 0,
+        missingScans,
       };
     }));
   } catch (err) {
