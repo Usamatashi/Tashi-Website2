@@ -179,7 +179,7 @@ export default function AdminDashboard() {
               <TrendingUp className="h-4 w-4 text-white/80" />
               <span className="text-xs font-semibold uppercase tracking-widest text-black/80">This Month's Revenue</span>
             </div>
-            <div className="font-display text-4xl font-bold text-brand-500">{formatPrice(revenue)}</div>
+            <div className="font-display text-4xl font-bold text-white">{formatPrice(revenue)}</div>
             <p className="mt-1 text-xs text-black/60">POS + wholesale + website (dispatched only)</p>
           </div>
 
