@@ -207,20 +207,21 @@ async function handleWebsiteStats(_req, res) {
       db.collection("orders").get(),
     ]);
 
-    const counts = { total: 0, pending: 0, dispatched: 0, cancelled: 0, revenue: 0 };
+    const counts = { total: 0, pending: 0, confirmed: 0, dispatched: 0, cancelled: 0, revenue: 0 };
 
     retailSnap.docs.forEach((d) => {
       const data = d.data();
       counts.total += 1;
       const s = String(data?.status || "pending").toLowerCase();
-      if (counts[s] !== undefined) counts[s] += 1;
+      if (s in counts) counts[s] += 1;
       if (s === "dispatched") counts.revenue += toNumber(data?.total, 0);
     });
 
-    // Add wholesale pending (pending + confirmed = not yet dispatched)
+    // Add wholesale pending & confirmed separately
     wholesaleSnap.docs.forEach((d) => {
       const s = String(d.data()?.status || "pending").toLowerCase();
-      if (s === "pending" || s === "confirmed") counts.pending += 1;
+      if (s === "pending") counts.pending += 1;
+      else if (s === "confirmed") counts.confirmed += 1;
     });
 
     counts.revenue = Math.round(counts.revenue);

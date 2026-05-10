@@ -31,6 +31,7 @@ const STAT_CARDS = (c: Counts) => [
     value: c.websiteOrders?.pending ?? 0,
     accent: "border-t-amber-400", iconBg: "bg-amber-50", iconColor: "text-amber-600", valueColor: "text-amber-600",
     pulse: (c.websiteOrders?.pending ?? 0) > 0,
+    confirmed: c.websiteOrders?.confirmed ?? 0,
   },
   {
     to: "/admin/claims", icon: ShieldCheck, label: "Pending Claims",
@@ -166,6 +167,12 @@ export default function AdminDashboard() {
               </div>
               <div className="text-[10px] font-semibold uppercase tracking-widest text-ink-400">{card.label}</div>
               <div className={`mt-1 font-display text-2xl font-bold ${card.valueColor}`}>{card.value}</div>
+              {"confirmed" in card && (card.confirmed as number) > 0 && (
+                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-semibold text-blue-700">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                  {card.confirmed as number} confirmed
+                </span>
+              )}
               <ArrowRight className="absolute bottom-4 right-4 h-4 w-4 text-ink-200 transition-all group-hover:right-3 group-hover:text-ink-400" />
             </Link>
           ))}

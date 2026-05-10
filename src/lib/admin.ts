@@ -32,6 +32,7 @@ export type AdminOrder = {
 export type AdminStats = {
   total: number;
   pending: number;
+  confirmed: number;
   dispatched: number;
   cancelled: number;
   revenue: number;
