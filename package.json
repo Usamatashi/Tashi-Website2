@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "npx concurrently -n web,api -c blue,green -k \"vite dev --port 5000\" \"npx nodemon --watch server --ext js,mjs server/index.js\"",
+    "dev": "concurrently -n web,api -c blue,green -k \"vite dev --port 5000\" \"nodemon --watch server --ext js,mjs server/index.js\"",
     "dev:web": "vite dev",
     "dev:api": "npx nodemon --watch server --ext js,mjs server/index.js",
     "build": "vite build",
