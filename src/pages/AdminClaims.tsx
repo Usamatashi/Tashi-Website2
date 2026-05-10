@@ -151,7 +151,7 @@ export default function AdminClaims() {
                 <th className="hidden px-4 py-3 text-left lg:table-cell">Date</th>
                 <th className="px-4 py-3 text-right">Points</th>
                 <th className="px-4 py-3 text-right">Verified</th>
-                <th className="px-4 py-3 text-left">Status</th>
+                {statusFilter === "all" && <th className="px-4 py-3 text-left">Status</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
@@ -168,9 +168,11 @@ export default function AdminClaims() {
                     <span className="text-emerald-700">{c.verifiedScans}</span> / {c.totalScans}
                     {c.missingScans > 0 && <span className="ml-1 text-red-600">· {c.missingScans} missing</span>}
                   </td>
-                  <td className="px-4 py-3">
-                    <Pill tone={claimStatusTone(c.status || "pending")}>{claimStatusLabel(c.status || "pending")}</Pill>
-                  </td>
+                  {statusFilter === "all" && (
+                    <td className="px-4 py-3">
+                      <Pill tone={claimStatusTone(c.status || "pending")}>{claimStatusLabel(c.status || "pending")}</Pill>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
