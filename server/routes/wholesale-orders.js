@@ -110,7 +110,7 @@ router.get("/admin/wholesale-orders", requireAdmin, async (req, res) => {
         return {
           id: o.id ?? o.docId,
           docId: o.docId,
-          status: o.status || "pending",
+          status: String(o.status || "pending").toLowerCase(),
           createdAt: toISOString(o.createdAt),
           retailerId: o.retailerId ?? null,
           retailerName: retailer?.name ?? null,
@@ -153,7 +153,7 @@ router.get("/admin/wholesale-orders/:id", requireAdmin, async (req, res) => {
     res.json({
       id: o.id ?? snap.id,
       docId: snap.id,
-      status: o.status || "pending",
+      status: String(o.status || "pending").toLowerCase(),
       createdAt: toISOString(o.createdAt),
       retailerId: o.retailerId ?? null,
       retailerName: retailer?.name ?? null,
