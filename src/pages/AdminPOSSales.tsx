@@ -5,7 +5,7 @@ import {
 } from "recharts";
 import {
   TrendingUp, Search, X, ChevronDown, ChevronRight,
-  ShoppingBag, Package, RotateCcw, Layers,
+  ShoppingBag, Package, RotateCcw, Layers, Calendar,
 } from "lucide-react";
 import { DateRangeFilter } from "@/components/admin/DateRangeFilter";
 import {
