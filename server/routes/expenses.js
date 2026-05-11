@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, toISOString, nextId } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
+import { accountByCode, expenseAccountCode, postAutoJournal } from "../lib/autoJournal.js";
 
 const router = Router();
 router.use(requireAdmin);
@@ -38,6 +39,7 @@ router.post("/", async (req, res) => {
     if (!sanitize(date)) return res.status(400).json({ error: "Date is required" });
     const creditMode = isCredit === true || isCredit === "true";
     if (creditMode && !supplierId) return res.status(400).json({ error: "Supplier is required for credit expenses" });
+
     const id = await nextId("expenses");
     const expenseNumber = `EXP-${padNum(id)}`;
     const doc = {
@@ -53,8 +55,54 @@ router.post("/", async (req, res) => {
       notes: sanitize(notes, 1000),
       recordedBy: req.admin?.userId ?? null,
       createdAt: new Date(),
+      journalEntryId: null,
     };
     await db.collection("expenses").doc(String(id)).set(doc);
+
+    // ── Auto-post journal entry ────────────────────────────────────────────────
+    try {
+      const expCode  = expenseAccountCode(doc.category);
+      const [expAcct, cashAcct, apAcct] = await Promise.all([
+        accountByCode(expCode),
+        accountByCode("1000"),
+        accountByCode("2000"),
+      ]);
+      const amt = Math.round(doc.amount);
+      const lines = [
+        {
+          accountId: expAcct.id, accountCode: expAcct.code, accountName: expAcct.name,
+          debit: amt, credit: 0,
+          description: doc.description || doc.category,
+        },
+        creditMode
+          ? {
+              accountId: apAcct.id, accountCode: apAcct.code, accountName: apAcct.name,
+              debit: 0, credit: amt,
+              description: `Credit expense — ${doc.supplierName || ""}`,
+            }
+          : {
+              accountId: cashAcct.id, accountCode: cashAcct.code, accountName: cashAcct.name,
+              debit: 0, credit: amt,
+              description: "Cash paid",
+            },
+      ];
+      const journalId = await postAutoJournal({
+        date: doc.date,
+        description: `Expense: ${doc.category} — ${doc.description || doc.expenseNumber}`,
+        reference: doc.expenseNumber,
+        lines,
+        sourceModule: "expense",
+        sourceId: String(id),
+        createdBy: req.admin?.userId,
+      });
+      if (journalId) {
+        await db.collection("expenses").doc(String(id)).update({ journalEntryId: journalId });
+        doc.journalEntryId = journalId;
+      }
+    } catch (e) {
+      console.error("auto-journal expense:", e.message);
+    }
+
     res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

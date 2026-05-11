@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, toISOString, nextId } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
+import { accountByCode, postAutoJournal } from "../lib/autoJournal.js";
 
 const router = Router();
 router.use(requireAdmin);
@@ -37,27 +38,30 @@ router.post("/", async (req, res) => {
     }));
     const totalAmount = cleanItems.reduce((s, i) => s + i.lineTotal, 0);
     const status = ["unpaid", "partial", "paid"].includes(paymentStatus) ? paymentStatus : "unpaid";
+    const paidAmt = status === "paid"
+      ? Math.round(totalAmount)
+      : (status === "partial" ? toNum(amountPaid) : 0);
+
     const doc = {
       id, purchaseNumber,
       supplierId: supplierId ? String(supplierId) : null,
       supplierName: sanitize(supplierName, 200),
       items: cleanItems,
       totalAmount: Math.round(totalAmount),
-      amountPaid: status === "paid" ? Math.round(totalAmount) : (status === "partial" ? toNum(amountPaid) : 0),
+      amountPaid: paidAmt,
       paymentStatus: status,
       notes: sanitize(notes, 1000),
       date: sanitize(date, 20) || new Date().toISOString().slice(0, 10),
       recordedBy: req.admin?.userId ?? null,
       createdAt: new Date(),
+      journalEntryId: null,
     };
     await db.collection("purchases").doc(String(id)).set(doc);
 
-    // Update pos_stock for each purchased item
+    // ── Update pos_stock (WAC) ────────────────────────────────────────────────
     for (const item of cleanItems) {
       if (!item.qty || item.qty <= 0) continue;
       const stockCol = db.collection("pos_stock");
-
-      // Try to find existing stock entry by SKU first, then by productName
       let existingSnap = null;
       if (item.sku) {
         const bySku = await stockCol.where("sku", "==", item.sku).limit(1).get();
@@ -67,17 +71,15 @@ router.post("/", async (req, res) => {
         const byName = await stockCol.where("productName", "==", item.productName).limit(1).get();
         if (!byName.empty) existingSnap = byName.docs[0];
       }
-
       if (existingSnap) {
-        // WAC: recalculate weighted average cost
         const data = existingSnap.data();
-        const currentQty = data.quantity || 0;
-        const currentAvgCost = data.averageCost || data.costPrice || 0;
+        const currentQty        = data.quantity || 0;
+        const currentAvgCost    = data.averageCost || data.costPrice || 0;
         const currentTotalValue = data.totalStockValue || currentQty * currentAvgCost;
-        const addCost = item.unitCost || currentAvgCost;
-        const newQty = currentQty + item.qty;
-        const newTotalValue = currentTotalValue + item.qty * addCost;
-        const newAvgCost = newQty > 0 ? newTotalValue / newQty : addCost;
+        const addCost           = item.unitCost || currentAvgCost;
+        const newQty            = currentQty + item.qty;
+        const newTotalValue     = currentTotalValue + item.qty * addCost;
+        const newAvgCost        = newQty > 0 ? newTotalValue / newQty : addCost;
         await existingSnap.ref.update({
           quantity: newQty,
           totalStockValue: newTotalValue,
@@ -86,7 +88,6 @@ router.post("/", async (req, res) => {
           updatedAt: new Date(),
         });
       } else {
-        // Create a new stock entry with WAC fields
         const stockId = await nextId("pos_stock");
         const stockProductId = await nextId("pos_stock_product");
         const avgCost = item.unitCost || 0;
@@ -104,6 +105,57 @@ router.post("/", async (req, res) => {
           updatedAt: new Date(),
         });
       }
+    }
+
+    // ── Auto-post journal entry ───────────────────────────────────────────────
+    // Dr Inventory / Cr Cash (paid portion) + Cr Accounts Payable (credit portion)
+    try {
+      const [invAcct, cashAcct, apAcct] = await Promise.all([
+        accountByCode("1200"),
+        accountByCode("1000"),
+        accountByCode("2000"),
+      ]);
+      const total     = doc.totalAmount;
+      const cashPaid  = doc.amountPaid;
+      const creditAmt = total - cashPaid;
+
+      const lines = [
+        {
+          accountId: invAcct.id, accountCode: invAcct.code, accountName: invAcct.name,
+          debit: total, credit: 0,
+          description: `Inventory received — ${doc.supplierName || ""}`,
+        },
+      ];
+      if (cashPaid > 0) {
+        lines.push({
+          accountId: cashAcct.id, accountCode: cashAcct.code, accountName: cashAcct.name,
+          debit: 0, credit: cashPaid,
+          description: "Cash paid to supplier",
+        });
+      }
+      if (creditAmt > 0) {
+        lines.push({
+          accountId: apAcct.id, accountCode: apAcct.code, accountName: apAcct.name,
+          debit: 0, credit: creditAmt,
+          description: "Accounts payable — credit purchase",
+        });
+      }
+
+      const journalId = await postAutoJournal({
+        date: doc.date,
+        description: `Purchase — ${doc.supplierName || doc.purchaseNumber}`,
+        reference: doc.purchaseNumber,
+        lines,
+        sourceModule: "purchase",
+        sourceId: String(id),
+        createdBy: req.admin?.userId,
+      });
+      if (journalId) {
+        await db.collection("purchases").doc(String(id)).update({ journalEntryId: journalId });
+        doc.journalEntryId = journalId;
+      }
+    } catch (e) {
+      console.error("auto-journal purchase:", e.message);
     }
 
     res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });
@@ -172,6 +224,7 @@ router.post("/returns", async (req, res) => {
       unitCost: toNum(i.unitCost),
       lineTotal: toNum(i.lineTotal) || toNum(i.qty) * toNum(i.unitCost),
     }));
+    const retTotal = toNum(totalReturn) || cleanItems.reduce((s, i) => s + i.lineTotal, 0);
     const doc = {
       id, returnNumber,
       purchaseId: String(purchaseId),
@@ -179,17 +232,16 @@ router.post("/returns", async (req, res) => {
       supplierId: supplierId ? String(supplierId) : null,
       supplierName: sanitize(supplierName, 200),
       items: cleanItems,
-      totalReturn: toNum(totalReturn) || cleanItems.reduce((s, i) => s + i.lineTotal, 0),
+      totalReturn: retTotal,
       reason: sanitize(reason, 1000),
       processedBy: req.admin?.userId ?? null,
       createdAt: new Date(),
+      journalEntryId: null,
     };
     await db.collection("purchase_returns").doc(String(id)).set(doc);
-
-    // Mark the original purchase as having a return
     await purchaseRef.update({ hasReturn: true });
 
-    // Decrement pos_stock for each returned item
+    // Decrement pos_stock
     for (const item of cleanItems) {
       if (!item.qty || item.qty <= 0) continue;
       const stockCol = db.collection("pos_stock");
@@ -204,18 +256,42 @@ router.post("/returns", async (req, res) => {
       }
       if (existingSnap) {
         const data = existingSnap.data();
-        const currentQty = data.quantity || 0;
-        const currentAvgCost = data.averageCost || data.costPrice || 0;
+        const currentQty        = data.quantity || 0;
+        const currentAvgCost    = data.averageCost || data.costPrice || 0;
         const currentTotalValue = data.totalStockValue || currentQty * currentAvgCost;
-        const removeQty = Math.min(item.qty, currentQty);
-        const newQty = currentQty - removeQty;
-        const newTotalValue = Math.max(0, currentTotalValue - removeQty * currentAvgCost);
-        await existingSnap.ref.update({
-          quantity: newQty,
-          totalStockValue: newTotalValue,
-          updatedAt: new Date(),
-        });
+        const removeQty         = Math.min(item.qty, currentQty);
+        const newQty            = currentQty - removeQty;
+        const newTotalValue     = Math.max(0, currentTotalValue - removeQty * currentAvgCost);
+        await existingSnap.ref.update({ quantity: newQty, totalStockValue: newTotalValue, updatedAt: new Date() });
       }
+    }
+
+    // ── Auto-post journal entry for purchase return ───────────────────────────
+    // Dr Accounts Payable / Cr Inventory
+    try {
+      const [apAcct, invAcct] = await Promise.all([
+        accountByCode("2000"),
+        accountByCode("1200"),
+      ]);
+      const amt = Math.round(retTotal);
+      const journalId = await postAutoJournal({
+        date: new Date().toISOString().slice(0, 10),
+        description: `Purchase Return — ${sanitize(supplierName, 200) || returnNumber}`,
+        reference: returnNumber,
+        lines: [
+          { accountId: apAcct.id, accountCode: apAcct.code, accountName: apAcct.name, debit: amt, credit: 0, description: "AP reduced — purchase return" },
+          { accountId: invAcct.id, accountCode: invAcct.code, accountName: invAcct.name, debit: 0, credit: amt, description: "Inventory reduced — returned to supplier" },
+        ],
+        sourceModule: "purchase_return",
+        sourceId: String(id),
+        createdBy: req.admin?.userId,
+      });
+      if (journalId) {
+        await db.collection("purchase_returns").doc(String(id)).update({ journalEntryId: journalId });
+        doc.journalEntryId = journalId;
+      }
+    } catch (e) {
+      console.error("auto-journal purchase_return:", e.message);
     }
 
     res.status(201).json({ ...doc, createdAt: toISOString(doc.createdAt) });

@@ -791,26 +791,59 @@ export async function adminGetCashBook(params: { from?: string; to?: string } = 
   );
 }
 
-// ── Financial Reports ─────────────────────────────────────────────────────
+// ── Financial Reports (GL-driven) ─────────────────────────────────────────
+export type GLLine = { code: string; name: string; amount: number };
 export type PLReport = {
   period: { from: string; to: string };
-  revenue: { posRevenue: number; wsRevenue: number; grossRevenue: number; salesReturns: number; netRevenue: number; journalRevenue: number };
-  cogs: { purchases: number; purchaseReturns: number; netCOGS: number };
+  source: "gl";
+  revenue: { lines: GLLine[]; gross: number; returns: number; net: number };
+  cogs: { lines: GLLine[]; total: number };
   grossProfit: number;
-  expenses: { byCategory: Record<string, number>; total: number; journalExpenses: number; totalOpEx: number };
+  operatingExpenses: { lines: GLLine[]; total: number };
+  operatingProfit: number;
+  financeExpenses: { lines: GLLine[]; total: number };
   netProfit: number;
 };
+export type BSRow = { code: string; name: string; amount: number };
 export type BalanceSheet = {
   asOf: string;
-  assets: { current: { cash: number; accountsReceivable: number; inventory: number; total: number }; total: number };
-  liabilities: { current: { accountsPayable: number; creditExpenses: number; total: number }; total: number };
-  equity: { retainedEarnings: number; total: number };
+  source: "gl";
+  assets: {
+    current: { rows: BSRow[]; total: number };
+    nonCurrent: { rows: BSRow[]; total: number };
+    total: number;
+  };
+  liabilities: {
+    current: { rows: BSRow[]; total: number };
+    nonCurrent: { rows: BSRow[]; total: number };
+    total: number;
+  };
+  equity: { rows: BSRow[]; retainedEarnings: number; totalCapital: number; total: number };
+  totalLiabilitiesAndEquity: number;
   checkBalance: boolean;
 };
 export type TrialBalance = {
   asOf: string;
+  source: "gl";
   rows: { id: string; code: string; name: string; type: string; debit: number; credit: number }[];
   totalDebit: number; totalCredit: number; balanced: boolean;
+};
+export type CashFlow = {
+  period: { from: string; to: string };
+  source: "gl";
+  method: "indirect";
+  operatingActivities: {
+    netProfit: number;
+    adjustments: { depreciation: number };
+    workingCapitalChanges: { changeInAR: number; changeInInventory: number; changeInAP: number; changeInAccruedExpenses: number };
+    total: number;
+  };
+  investingActivities: { fixedAssetPurchases: number; total: number };
+  financingActivities: { netShortTermLoans: number; netLongTermLoans: number; ownerCapitalInjection: number; drawings: number; total: number };
+  netCashMovement: number;
+  openingCashBalance: number;
+  closingCashBalance: number;
+  checkBalance: boolean;
 };
 export async function adminGetPL(params: { from?: string; to?: string } = {}) {
   const q = new URLSearchParams();
@@ -825,6 +858,12 @@ export async function adminGetBalanceSheet(date?: string) {
 export async function adminGetTrialBalance(date?: string) {
   const q = date ? `?date=${date}` : "";
   return handle<TrialBalance>(await apiFetch(`/api/admin/financial-reports/trial-balance${q}`, j()));
+}
+export async function adminGetCashFlow(params: { from?: string; to?: string } = {}) {
+  const q = new URLSearchParams();
+  if (params.from) q.set("from", params.from);
+  if (params.to) q.set("to", params.to);
+  return handle<CashFlow>(await apiFetch(`/api/admin/financial-reports/cash-flow?${q}`, j()));
 }
 
 // ── Constants & helpers ──────────────────────────────────────────────────

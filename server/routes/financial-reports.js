@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "../lib/firebase.js";
 import { requireAdmin } from "../lib/auth.js";
+import { buildGLBalances, buildGLFlow } from "../lib/autoJournal.js";
 
 const router = Router();
 router.use(requireAdmin);
@@ -14,161 +15,96 @@ function endOfDay(str) {
   return d;
 }
 
-function inRange(date, from, to) {
-  if (!date) return false;
-  if (from && date < from) return false;
-  if (to   && date > to)   return false;
-  return true;
+function startOfDay(str) {
+  if (!str) return null;
+  const d = new Date(str);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
-// ── P&L ──────────────────────────────────────────────────────────────────────
+// ── Account code range helpers ────────────────────────────────────────────────
+// 1xxx = Assets  | 2xxx = Liabilities | 3xxx = Equity
+// 4xxx = Revenue | 5xxx–7xxx = Expenses
+
+function codeNum(code) { return parseInt(code) || 0; }
+
+function isAsset(code)     { const c = codeNum(code); return c >= 1000 && c < 2000; }
+function isLiability(code) { const c = codeNum(code); return c >= 2000 && c < 3000; }
+function isEquity(code)    { const c = codeNum(code); return c >= 3000 && c < 4000; }
+function isRevenue(code)   { const c = codeNum(code); return c >= 4000 && c < 4900; }
+function isContra(code)    { const c = codeNum(code); return c >= 4900 && c < 5000; }
+function isCOGS(code)      { const c = codeNum(code); return c >= 5000 && c < 5100; }
+function isOpEx(code)      { const c = codeNum(code); return c >= 5100 && c < 7000; }
+function isFinance(code)   { const c = codeNum(code); return c >= 7000 && c < 8000; }
+function isExpense(code)   { return isCOGS(code) || isOpEx(code) || isFinance(code); }
+
+function netRevenue(b) { return (b.credit - b.debit); }   // Cr normal
+function netExpense(b) { return (b.debit  - b.credit); }  // Dr normal
+
+// ── P&L  (GL-driven, period) ─────────────────────────────────────────────────
 router.get("/pl", async (req, res) => {
   try {
-    const fromDate = req.query.from ? new Date(req.query.from) : new Date(new Date().getFullYear(), 0, 1);
-    const toDate   = req.query.to   ? endOfDay(req.query.to)  : endOfDay(new Date().toISOString().slice(0, 10));
+    const fromDate = req.query.from
+      ? startOfDay(req.query.from)
+      : new Date(new Date().getFullYear(), 0, 1);
+    const toDate = req.query.to
+      ? endOfDay(req.query.to)
+      : endOfDay(new Date().toISOString().slice(0, 10));
 
-    const [posSalesSnap, ordersSnap, posReturnsSnap, expensesSnap, purchasesSnap, purReturnSnap, journalSnap, stockSnap] = await Promise.all([
-      db.collection("pos_sales").get(),
-      db.collection("orders").get(),
-      db.collection("pos_returns").get(),
-      db.collection("expenses").get(),
-      db.collection("purchases").get(),
-      db.collection("purchase_returns").get(),
-      db.collection("journal_entries").where("status", "==", "posted").get(),
-      db.collection("pos_stock").get(),
-    ]);
+    const flow = await buildGLFlow(fromDate, toDate);
 
-    // Revenue
-    let posRevenue = 0;
-    for (const d of posSalesSnap.docs) {
-      const s = d.data();
-      const date = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt || 0);
-      if (inRange(date, fromDate, toDate)) posRevenue += toNum(s.total);
+    const revenueLines = [];
+    const contraLines  = [];
+    const cogsLines    = [];
+    const opExLines    = [];
+    const financeLines = [];
+
+    for (const b of Object.values(flow)) {
+      if (isRevenue(b.code))       revenueLines.push({ code: b.code, name: b.name, amount: Math.max(0, netRevenue(b)) });
+      else if (isContra(b.code))   contraLines.push ({ code: b.code, name: b.name, amount: Math.max(0, netExpense(b)) });
+      else if (isCOGS(b.code))     cogsLines.push   ({ code: b.code, name: b.name, amount: Math.max(0, netExpense(b)) });
+      else if (isOpEx(b.code))     opExLines.push   ({ code: b.code, name: b.name, amount: Math.max(0, netExpense(b)) });
+      else if (isFinance(b.code))  financeLines.push({ code: b.code, name: b.name, amount: Math.max(0, netExpense(b)) });
     }
 
-    let wsRevenue = 0;
-    for (const d of ordersSnap.docs) {
-      const o = d.data();
-      if (o.source === "website") continue;
-      const date = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || 0);
-      if (inRange(date, fromDate, toDate)) wsRevenue += toNum(o.total || o.subtotal);
-    }
+    const byCode = (a, b) => codeNum(a.code) - codeNum(b.code);
+    [revenueLines, contraLines, cogsLines, opExLines, financeLines].forEach((arr) => arr.sort(byCode));
 
-    let salesReturns = 0;
-    for (const d of posReturnsSnap.docs) {
-      const r = d.data();
-      const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
-      if (inRange(date, fromDate, toDate)) salesReturns += toNum(r.totalRefund);
-    }
-
-    // Build cost-price lookup from stock: productId → costPrice
-    const costByProductId = {};
-    stockSnap.forEach((d) => {
-      const s = d.data();
-      if (s.productId != null) costByProductId[String(s.productId)] = toNum(s.costPrice || 0);
-    });
-
-    // COGS (accrual basis) — cost of goods ACTUALLY SOLD in the period
-    // Dr COGS / Cr Inventory: recognised when the sale occurs, not when purchased
-    let cogs = 0;
-    for (const d of posSalesSnap.docs) {
-      const s = d.data();
-      const date = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt || 0);
-      if (!inRange(date, fromDate, toDate)) continue;
-      for (const item of (s.items || [])) {
-        const cost = costByProductId[String(item.productId ?? "")] || 0;
-        cogs += toNum(item.qty) * cost;
-      }
-    }
-
-    // Cost of goods returned by customers (reverses COGS, restores inventory)
-    let cogsReturned = 0;
-    for (const d of posReturnsSnap.docs) {
-      const r = d.data();
-      const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
-      if (!inRange(date, fromDate, toDate)) continue;
-      for (const item of (r.items || [])) {
-        const cost = costByProductId[String(item.productId ?? "")] || 0;
-        cogsReturned += toNum(item.qty || item.quantity) * cost;
-      }
-    }
-
-    // Purchases add to Inventory (asset) — listed separately for transparency
-    let purchasesInPeriod = 0;
-    for (const d of purchasesSnap.docs) {
-      const p = d.data();
-      const date = p.date ? new Date(p.date) : null;
-      if (inRange(date, fromDate, toDate)) purchasesInPeriod += toNum(p.totalAmount);
-    }
-    let purchaseReturns = 0;
-    for (const d of purReturnSnap.docs) {
-      const r = d.data();
-      const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
-      if (inRange(date, fromDate, toDate)) purchaseReturns += toNum(r.totalReturn);
-    }
-
-    // Expenses by category
-    const expenseByCategory = {};
-    let totalExpenses = 0;
-    for (const d of expensesSnap.docs) {
-      const e = d.data();
-      const date = e.date ? new Date(e.date) : null;
-      if (!inRange(date, fromDate, toDate)) continue;
-      const cat = e.category || "General";
-      expenseByCategory[cat] = (expenseByCategory[cat] || 0) + toNum(e.amount);
-      totalExpenses += toNum(e.amount);
-    }
-
-    // Journal revenue/expense lines
-    let journalRevenue = 0, journalExpenses = 0;
-    for (const d of journalSnap.docs) {
-      const j = d.data();
-      const date = j.date ? new Date(j.date) : null;
-      if (!inRange(date, fromDate, toDate)) continue;
-      for (const line of (j.lines || [])) {
-        const code = line.accountCode || "";
-        const codeNum = parseInt(code);
-        if (codeNum >= 4000 && codeNum < 5000) {
-          journalRevenue += (line.credit - line.debit);
-        }
-        if (codeNum >= 5000) {
-          journalExpenses += (line.debit - line.credit);
-        }
-      }
-    }
-
-    const grossRevenue = posRevenue + wsRevenue;
-    const netRevenue   = grossRevenue - salesReturns;
-    // Net COGS = cost of goods sold − cost of goods returned by customers
-    const netCOGS      = Math.max(0, cogs - cogsReturned);
-    const grossProfit  = netRevenue - netCOGS;
-    const totalOpEx    = totalExpenses + Math.max(0, journalExpenses);
-    const netProfit    = grossProfit - totalOpEx + journalRevenue;
+    const grossRevenue    = revenueLines.reduce((s, l) => s + l.amount, 0);
+    const salesReturns    = contraLines.reduce ((s, l) => s + l.amount, 0);
+    const netRevenue_     = grossRevenue - salesReturns;
+    const totalCOGS       = cogsLines.reduce   ((s, l) => s + l.amount, 0);
+    const grossProfit     = netRevenue_ - totalCOGS;
+    const totalOpEx       = opExLines.reduce   ((s, l) => s + l.amount, 0);
+    const operatingProfit = grossProfit - totalOpEx;
+    const totalFinance    = financeLines.reduce((s, l) => s + l.amount, 0);
+    const netProfit       = operatingProfit - totalFinance;
 
     res.json({
-      period: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
+      period: {
+        from: fromDate.toISOString().slice(0, 10),
+        to:   toDate.toISOString().slice(0, 10),
+      },
+      source: "gl",
       revenue: {
-        posRevenue,
-        wsRevenue,
-        grossRevenue,
-        salesReturns,
-        netRevenue,
-        journalRevenue,
+        lines: revenueLines,
+        gross: grossRevenue,
+        returns: salesReturns,
+        net: netRevenue_,
       },
       cogs: {
-        costOfGoodsSold: cogs,
-        costOfGoodsReturned: cogsReturned,
-        netCOGS,
-        // Purchases in period shown separately (they go to Inventory, not COGS directly)
-        purchasesInPeriod,
-        purchaseReturns,
+        lines: cogsLines,
+        total: totalCOGS,
       },
       grossProfit,
-      expenses: {
-        byCategory: expenseByCategory,
-        total: totalExpenses,
-        journalExpenses: Math.max(0, journalExpenses),
-        totalOpEx,
+      operatingExpenses: {
+        lines: opExLines,
+        total: totalOpEx,
+      },
+      operatingProfit,
+      financeExpenses: {
+        lines: financeLines,
+        total: totalFinance,
       },
       netProfit,
     });
@@ -178,133 +114,76 @@ router.get("/pl", async (req, res) => {
   }
 });
 
-// ── Balance Sheet ─────────────────────────────────────────────────────────────
+// ── Balance Sheet  (GL-driven, cumulative up to date) ────────────────────────
 router.get("/balance-sheet", async (req, res) => {
   try {
-    const asOf = req.query.date ? endOfDay(req.query.date) : endOfDay(new Date().toISOString().slice(0, 10));
+    const asOf = req.query.date
+      ? endOfDay(req.query.date)
+      : endOfDay(new Date().toISOString().slice(0, 10));
 
-    const [posSalesSnap, posReturnsSnap, expensesSnap, purchasesSnap, purReturnSnap, journalSnap, stockSnap, ordersSnap] = await Promise.all([
-      db.collection("pos_sales").get(),
-      db.collection("pos_returns").get(),
-      db.collection("expenses").get(),
-      db.collection("purchases").get(),
-      db.collection("purchase_returns").get(),
-      db.collection("journal_entries").where("status", "==", "posted").get(),
-      db.collection("pos_stock").get(),
-      db.collection("orders").get(),
-    ]);
+    const glBalances = await buildGLBalances(asOf);
 
-    // Cash (net of all transactions up to asOf)
-    let cash = 0;
-    for (const d of posSalesSnap.docs) {
-      const s = d.data();
-      const date = s.createdAt?.toDate ? s.createdAt.toDate() : new Date(s.createdAt || 0);
-      if (date <= asOf) cash += toNum(s.total);
-    }
-    for (const d of posReturnsSnap.docs) {
-      const r = d.data();
-      const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt || 0);
-      if (date <= asOf) cash -= toNum(r.totalRefund);
-    }
-    for (const d of expensesSnap.docs) {
-      const e = d.data();
-      if (e.isCredit) continue;
-      const date = e.date ? new Date(e.date) : null;
-      if (date && date <= asOf) cash -= toNum(e.amount);
-    }
-    for (const d of purchasesSnap.docs) {
-      const p = d.data();
-      const date = p.date ? new Date(p.date) : null;
-      if (date && date <= asOf) cash -= toNum(p.amountPaid);
-    }
+    const assetRows  = [];
+    const liabRows   = [];
+    const equityRows = [];
+    let   retainedEarnings = 0;
 
-    // Inventory value (from stock)
-    let inventoryValue = 0;
-    stockSnap.forEach((d) => {
-      const s = d.data();
-      inventoryValue += toNum(s.quantity) * toNum(s.costPrice || s.price || 0);
-    });
-
-    // Accounts Payable (unpaid/partial purchases)
-    let accountsPayable = 0;
-    for (const d of purchasesSnap.docs) {
-      const p = d.data();
-      const date = p.date ? new Date(p.date) : null;
-      if (!date || date > asOf) continue;
-      const outstanding = toNum(p.totalAmount) - toNum(p.amountPaid);
-      if (outstanding > 0) accountsPayable += outstanding;
-    }
-
-    // Credit expenses payable
-    let creditExpensesPayable = 0;
-    for (const d of expensesSnap.docs) {
-      const e = d.data();
-      if (!e.isCredit) continue;
-      const date = e.date ? new Date(e.date) : null;
-      if (date && date <= asOf) creditExpensesPayable += toNum(e.amount);
-    }
-
-    // Accounts Receivable (wholesale orders not marked delivered)
-    let accountsReceivable = 0;
-    for (const d of ordersSnap.docs) {
-      const o = d.data();
-      if (o.source === "website") continue;
-      if (o.status === "delivered" || o.status === "cancelled") continue;
-      const date = o.createdAt?.toDate ? o.createdAt.toDate() : new Date(o.createdAt || 0);
-      if (date <= asOf) accountsReceivable += toNum(o.total || o.subtotal);
-    }
-
-    // Journal adjustments for asset/liability accounts
-    let journalCashAdj = 0, journalARAdj = 0, journalAPAdj = 0, journalEquityAdj = 0;
-    for (const d of journalSnap.docs) {
-      const j = d.data();
-      const date = j.date ? new Date(j.date) : null;
-      if (!date || date > asOf) continue;
-      for (const line of (j.lines || [])) {
-        const code = line.accountCode || "";
-        const codeNum = parseInt(code);
-        const net = (line.debit || 0) - (line.credit || 0);
-        if (code === "1000" || code === "1010") journalCashAdj += net;
-        if (codeNum === 1100) journalARAdj += net;
-        if (codeNum === 2000) journalAPAdj += net;
-        if (codeNum >= 3000 && codeNum < 4000) journalEquityAdj += net;
+    for (const b of Object.values(glBalances)) {
+      if (isAsset(b.code)) {
+        assetRows.push({ code: b.code, name: b.name, amount: b.debit - b.credit });
+      } else if (isLiability(b.code)) {
+        liabRows.push({ code: b.code, name: b.name, amount: b.credit - b.debit });
+      } else if (isEquity(b.code)) {
+        equityRows.push({ code: b.code, name: b.name, amount: b.credit - b.debit });
+      } else if (isRevenue(b.code)) {
+        retainedEarnings += Math.max(0, netRevenue(b));
+      } else if (isContra(b.code)) {
+        retainedEarnings -= Math.max(0, netExpense(b));
+      } else if (isExpense(b.code)) {
+        retainedEarnings -= Math.max(0, netExpense(b));
       }
     }
 
-    const totalCash = Math.max(0, cash + journalCashAdj);
-    const totalAR   = Math.max(0, accountsReceivable + journalARAdj);
-    const totalAP   = Math.max(0, accountsPayable - journalAPAdj);
+    const byCode = (a, b) => codeNum(a.code) - codeNum(b.code);
+    [assetRows, liabRows, equityRows].forEach((arr) => arr.sort(byCode));
 
-    const totalCurrentAssets    = totalCash + totalAR + inventoryValue;
-    const totalAssets            = totalCurrentAssets;
-    const totalCurrentLiabilities = totalAP + creditExpensesPayable;
-    const totalLiabilities       = totalCurrentLiabilities;
-    const equity                 = totalAssets - totalLiabilities + journalEquityAdj;
+    const currentAssets    = assetRows.filter((r) => codeNum(r.code) < 1500);
+    const nonCurrentAssets = assetRows.filter((r) => codeNum(r.code) >= 1500);
+    const totalCurrentAssets    = currentAssets.reduce   ((s, r) => s + r.amount, 0);
+    const totalNonCurrentAssets = nonCurrentAssets.reduce((s, r) => s + r.amount, 0);
+    const totalAssets           = totalCurrentAssets + totalNonCurrentAssets;
+
+    const currentLiabs    = liabRows.filter((r) => codeNum(r.code) < 2200);
+    const nonCurrentLiabs = liabRows.filter((r) => codeNum(r.code) >= 2200);
+    const totalCurrentLiabs    = currentLiabs.reduce   ((s, r) => s + r.amount, 0);
+    const totalNonCurrentLiabs = nonCurrentLiabs.reduce((s, r) => s + r.amount, 0);
+    const totalLiabilities     = totalCurrentLiabs + totalNonCurrentLiabs;
+
+    const totalEquityCapital = equityRows.reduce((s, r) => s + r.amount, 0);
+    const totalEquity        = totalEquityCapital + retainedEarnings;
+    const checkBalance       = Math.abs(totalAssets - (totalLiabilities + totalEquity)) < 1;
 
     res.json({
       asOf: asOf.toISOString().slice(0, 10),
+      source: "gl",
       assets: {
-        current: {
-          cash: totalCash,
-          accountsReceivable: totalAR,
-          inventory: inventoryValue,
-          total: totalCurrentAssets,
-        },
+        current:    { rows: currentAssets,    total: totalCurrentAssets    },
+        nonCurrent: { rows: nonCurrentAssets, total: totalNonCurrentAssets },
         total: totalAssets,
       },
       liabilities: {
-        current: {
-          accountsPayable: totalAP,
-          creditExpenses: creditExpensesPayable,
-          total: totalCurrentLiabilities,
-        },
+        current:    { rows: currentLiabs,    total: totalCurrentLiabs    },
+        nonCurrent: { rows: nonCurrentLiabs, total: totalNonCurrentLiabs },
         total: totalLiabilities,
       },
       equity: {
-        retainedEarnings: equity,
-        total: equity,
+        rows: equityRows,
+        retainedEarnings,
+        totalCapital: totalEquityCapital,
+        total: totalEquity,
       },
-      checkBalance: Math.abs(totalAssets - (totalLiabilities + equity)) < 1,
+      totalLiabilitiesAndEquity: totalLiabilities + totalEquity,
+      checkBalance,
     });
   } catch (err) {
     console.error("financial-reports/balance-sheet:", err);
@@ -312,10 +191,12 @@ router.get("/balance-sheet", async (req, res) => {
   }
 });
 
-// ── Trial Balance ─────────────────────────────────────────────────────────────
+// ── Trial Balance  (GL-driven) ────────────────────────────────────────────────
 router.get("/trial-balance", async (req, res) => {
   try {
-    const asOf = req.query.date ? endOfDay(req.query.date) : endOfDay(new Date().toISOString().slice(0, 10));
+    const asOf = req.query.date
+      ? endOfDay(req.query.date)
+      : endOfDay(new Date().toISOString().slice(0, 10));
 
     const [accountsSnap, journalSnap] = await Promise.all([
       db.collection("accounts").orderBy("code").get(),
@@ -335,16 +216,28 @@ router.get("/trial-balance", async (req, res) => {
         if (balances[line.accountId]) {
           balances[line.accountId].debit  += toNum(line.debit);
           balances[line.accountId].credit += toNum(line.credit);
+        } else {
+          const code = line.accountCode || line.accountId;
+          const key  = line.accountId || code;
+          if (!balances[key]) {
+            balances[key] = { id: key, code, name: line.accountName || code, type: "", debit: 0, credit: 0 };
+          }
+          balances[key].debit  += toNum(line.debit);
+          balances[key].credit += toNum(line.credit);
         }
       }
     }
 
-    const rows = Object.values(balances).filter((b) => b.debit > 0 || b.credit > 0);
+    const rows = Object.values(balances)
+      .filter((b) => b.debit > 0 || b.credit > 0)
+      .sort((a, b) => (parseInt(a.code) || 0) - (parseInt(b.code) || 0));
+
     const totalDebit  = rows.reduce((s, r) => s + r.debit, 0);
     const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
 
     res.json({
       asOf: asOf.toISOString().slice(0, 10),
+      source: "gl",
       rows,
       totalDebit,
       totalCredit,
@@ -352,6 +245,109 @@ router.get("/trial-balance", async (req, res) => {
     });
   } catch (err) {
     console.error("financial-reports/trial-balance:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Cash Flow Statement — Indirect Method (GL-driven) ────────────────────────
+router.get("/cash-flow", async (req, res) => {
+  try {
+    const fromDate = req.query.from
+      ? startOfDay(req.query.from)
+      : new Date(new Date().getFullYear(), 0, 1);
+    const toDate = req.query.to
+      ? endOfDay(req.query.to)
+      : endOfDay(new Date().toISOString().slice(0, 10));
+
+    const openingAsOf = new Date(fromDate);
+    openingAsOf.setDate(openingAsOf.getDate() - 1);
+    openingAsOf.setHours(23, 59, 59, 999);
+
+    const [openingGL, closingGL, periodFlow] = await Promise.all([
+      buildGLBalances(openingAsOf),
+      buildGLBalances(toDate),
+      buildGLFlow(fromDate, toDate),
+    ]);
+
+    function glNetAsset(gl, code)     { const b = gl[code]; return b ? (b.debit - b.credit) : 0; }
+    function glNetLiability(gl, code) { const b = gl[code]; return b ? (b.credit - b.debit) : 0; }
+    function glNetEquity(gl, code)    { const b = gl[code]; return b ? (b.credit - b.debit) : 0; }
+
+    // ── 1. Net Profit for the period ─────────────────────────────────────────
+    let periodRevenue = 0, periodExpenses = 0;
+    for (const b of Object.values(periodFlow)) {
+      if (isRevenue(b.code))  periodRevenue  += Math.max(0, netRevenue(b));
+      if (isContra(b.code))   periodRevenue  -= Math.max(0, netExpense(b));
+      if (isExpense(b.code))  periodExpenses += Math.max(0, netExpense(b));
+    }
+    const netProfitForPeriod = periodRevenue - periodExpenses;
+
+    // ── 2. Non-cash adjustments ───────────────────────────────────────────────
+    const deprFlow   = periodFlow["5600"] || periodFlow["6200"] || { debit: 0, credit: 0 };
+    const depreciation = Math.max(0, deprFlow.debit - deprFlow.credit);
+
+    // ── 3. Working Capital Changes ────────────────────────────────────────────
+    const changeAR        = -(glNetAsset(closingGL, "1100") - glNetAsset(openingGL, "1100"));
+    const changeInventory = -(glNetAsset(closingGL, "1200") - glNetAsset(openingGL, "1200"));
+    const changeAP        =   glNetLiability(closingGL, "2000") - glNetLiability(openingGL, "2000");
+    const changeAccrued   =   glNetLiability(closingGL, "2200") - glNetLiability(openingGL, "2200");
+
+    const operatingActivities = netProfitForPeriod + depreciation + changeAR + changeInventory + changeAP + changeAccrued;
+
+    // ── 4. Investing Activities ───────────────────────────────────────────────
+    const fixedAssetPurchases = -(glNetAsset(closingGL, "1500") - glNetAsset(openingGL, "1500"));
+    const investingActivities = fixedAssetPurchases;
+
+    // ── 5. Financing Activities ───────────────────────────────────────────────
+    const netShortTermLoans = glNetLiability(closingGL, "2100") - glNetLiability(openingGL, "2100");
+    const netLongTermLoans  = glNetLiability(closingGL, "2500") - glNetLiability(openingGL, "2500");
+    const netCapital        = glNetEquity(closingGL, "3000")    - glNetEquity(openingGL, "3000");
+    const drawFlow          = periodFlow["3200"] || { debit: 0, credit: 0 };
+    const drawings          = -(drawFlow.debit - drawFlow.credit);
+    const financingActivities = netShortTermLoans + netLongTermLoans + netCapital + drawings;
+
+    // ── 6. Net Cash ───────────────────────────────────────────────────────────
+    const netCashMovement = operatingActivities + investingActivities + financingActivities;
+    const cashCodes       = ["1000", "1010"];
+    const openingCash     = cashCodes.reduce((s, c) => s + glNetAsset(openingGL, c), 0);
+    const closingCash     = cashCodes.reduce((s, c) => s + glNetAsset(closingGL, c), 0);
+
+    res.json({
+      period: {
+        from: fromDate.toISOString().slice(0, 10),
+        to:   toDate.toISOString().slice(0, 10),
+      },
+      source: "gl",
+      method: "indirect",
+      operatingActivities: {
+        netProfit: netProfitForPeriod,
+        adjustments: { depreciation },
+        workingCapitalChanges: {
+          changeInAR:              changeAR,
+          changeInInventory:       changeInventory,
+          changeInAP:              changeAP,
+          changeInAccruedExpenses: changeAccrued,
+        },
+        total: operatingActivities,
+      },
+      investingActivities: {
+        fixedAssetPurchases,
+        total: investingActivities,
+      },
+      financingActivities: {
+        netShortTermLoans,
+        netLongTermLoans,
+        ownerCapitalInjection: netCapital,
+        drawings,
+        total: financingActivities,
+      },
+      netCashMovement,
+      openingCashBalance: openingCash,
+      closingCashBalance: closingCash,
+      checkBalance: Math.abs((openingCash + netCashMovement) - closingCash) < 1,
+    });
+  } catch (err) {
+    console.error("financial-reports/cash-flow:", err);
     res.status(500).json({ error: err.message });
   }
 });

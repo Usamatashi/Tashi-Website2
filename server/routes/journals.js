@@ -76,7 +76,7 @@ router.post("/generate-monthly", async (req, res) => {
     function inRange(d) { return d >= fromDate && d <= lastDay; }
     function toN(v) { return Number(v) || 0; }
 
-    // Expense category → account code
+    // Expense category → account code (shared with autoJournal)
     const EXP_MAP = {
       salary: "5100", salaries: "5100", wages: "5100",
       rent: "5200",
@@ -89,6 +89,8 @@ router.post("/generate-monthly", async (req, res) => {
     function expCode(cat) { return EXP_MAP[(cat || "").toLowerCase().trim()] || "5900"; }
 
     // Fetch all data (including stock for COGS cost-price lookup)
+    // NOTE: expenses and purchases that already have journalEntryId were auto-journalized
+    //       on creation — the monthly generator skips them to avoid double-counting.
     const [posSnap, retSnap, expSnap, purSnap, purRetSnap, stockSnap] = await Promise.all([
       db.collection("pos_sales").get(),
       db.collection("pos_returns").get(),
@@ -187,9 +189,11 @@ router.post("/generate-monthly", async (req, res) => {
     }
 
     // 4. Expenses (grouped by category; accrual: recognised when incurred)
+    //    Skip expenses already auto-journalized on creation (journalEntryId is set).
     const expByCode = {}; // accountCode -> { acct fields, cash, credit }
     for (const d of expSnap.docs) {
       const e = d.data();
+      if (e.journalEntryId) continue; // already posted via auto-journal
       if (!inRange(docDate(e))) continue;
       const code = expCode(e.category);
       if (!expByCode[code]) expByCode[code] = { ...(byCode[code] || { accountId: code, accountCode: code, accountName: code }), cash: 0, credit: 0 };
@@ -213,10 +217,12 @@ router.post("/generate-monthly", async (req, res) => {
     }
 
     // 5. Purchases → Dr Inventory (asset), Cr Cash / Accounts Payable
+    //    Skip purchases already auto-journalized on creation (journalEntryId is set).
     //    Purchases build stock; COGS is only recognised when goods are sold (entry #2 above)
     let purCash = 0, purCredit = 0;
     for (const d of purSnap.docs) {
       const p = d.data();
+      if (p.journalEntryId) continue; // already posted via auto-journal
       if (!inRange(docDate(p))) continue;
       purCash   += toN(p.amountPaid);
       purCredit += Math.max(0, toN(p.totalAmount) - toN(p.amountPaid));
@@ -230,9 +236,14 @@ router.post("/generate-monthly", async (req, res) => {
       await saveEntry("PUR", `Purchases — Inventory In — ${monthName}`, purLines);
     }
 
-    // 6. Purchase Returns → Dr Cash / AP, Cr Inventory
+    // 6. Purchase Returns → Dr AP, Cr Inventory
+    //    Skip returns already auto-journalized on creation (journalEntryId is set).
     let purRetTot = 0;
-    for (const d of purRetSnap.docs) { const pr = d.data(); if (inRange(docDate(pr))) purRetTot += toN(pr.totalReturn); }
+    for (const d of purRetSnap.docs) {
+      const pr = d.data();
+      if (pr.journalEntryId) continue; // already posted via auto-journal
+      if (inRange(docDate(pr))) purRetTot += toN(pr.totalReturn);
+    }
     if (purRetTot > 0) {
       await saveEntry("PRET", `Purchase Returns — ${monthName}`, [
         acct("2000", "Accounts payable reduced — purchase return", purRetTot, 0),
