@@ -1,4 +1,4 @@
-import { CalendarDays, X, ArrowRight, Calendar } from "lucide-react";
+import { CalendarDays, X, MoveRight } from "lucide-react";
 
 interface DateRangeFilterProps {
   from: string;
@@ -9,58 +9,65 @@ interface DateRangeFilterProps {
   className?: string;
 }
 
+function formatDisplay(iso: string) {
+  if (!iso) return null;
+  const d = new Date(iso + "T00:00:00");
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 export function DateRangeFilter({
   from, to, onFromChange, onToChange, maxDate, className = "",
 }: DateRangeFilterProps) {
   const hasValues = from || to;
-  const hasFrom = Boolean(from);
-  const hasTo = Boolean(to);
 
   return (
-    <div className={`group inline-flex items-center rounded-2xl overflow-hidden border border-ink-200 bg-white shadow-sm hover:shadow-md hover:border-brand-300 transition-all duration-200 ${className}`}>
-      {/* Icon badge */}
-      <span className="flex items-center self-stretch px-3.5 bg-gradient-to-br from-brand-500 to-orange-600 border-r border-brand-400">
-        <CalendarDays className="h-4 w-4 text-white drop-shadow-sm" />
-      </span>
-
-      {/* From */}
-      <label className={`relative flex items-center gap-2 px-3.5 py-2.5 cursor-pointer transition-colors duration-150 ${hasFrom ? "bg-brand-50/60" : "hover:bg-ink-50"}`}>
-        <span className={`text-[10px] font-extrabold uppercase tracking-widest select-none transition-colors duration-150 ${hasFrom ? "text-brand-600" : "text-ink-400 group-hover:text-ink-600"}`}>
+    <div className={`inline-flex items-center gap-1.5 ${className}`}>
+      {/* From card */}
+      <label className={`relative flex flex-col cursor-pointer rounded-2xl border px-4 py-2.5 min-w-[130px] transition-all duration-200 hover:shadow-md group
+        ${from
+          ? "bg-brand-600 border-brand-600 shadow-md shadow-brand-200"
+          : "bg-white border-ink-200 hover:border-brand-300"
+        }`}>
+        <span className={`text-[9px] font-black uppercase tracking-[0.18em] mb-0.5 transition-colors ${from ? "text-brand-200" : "text-ink-400 group-hover:text-brand-500"}`}>
           From
         </span>
+        <span className={`text-sm font-bold leading-tight transition-colors ${from ? "text-white" : "text-ink-400"}`}>
+          {from ? formatDisplay(from) : "Pick date"}
+        </span>
+        <CalendarDays className={`absolute top-2.5 right-3 h-3.5 w-3.5 transition-colors ${from ? "text-brand-300" : "text-ink-300 group-hover:text-brand-400"}`} />
         <input
           type="date"
           value={from}
           max={to || maxDate}
           onChange={(e) => onFromChange(e.target.value)}
-          className={`w-[8.5rem] bg-transparent text-xs font-bold outline-none border-none cursor-pointer appearance-none [color-scheme:light] transition-colors duration-150 ${hasFrom ? "text-brand-700" : "text-ink-700"}`}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        {hasFrom && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-400 to-orange-400 rounded-full" />
-        )}
       </label>
 
-      {/* Separator */}
-      <span className="flex items-center px-1">
-        <ArrowRight className="h-3.5 w-3.5 text-ink-300 flex-shrink-0" />
-      </span>
+      {/* Connector arrow */}
+      <MoveRight className={`h-4 w-4 flex-shrink-0 transition-colors ${from && to ? "text-brand-500" : "text-ink-300"}`} />
 
-      {/* To */}
-      <label className={`relative flex items-center gap-2 px-3.5 py-2.5 cursor-pointer transition-colors duration-150 ${hasTo ? "bg-brand-50/60" : "hover:bg-ink-50"}`}>
-        <span className={`text-[10px] font-extrabold uppercase tracking-widest select-none transition-colors duration-150 ${hasTo ? "text-brand-600" : "text-ink-400 group-hover:text-ink-600"}`}>
+      {/* To card */}
+      <label className={`relative flex flex-col cursor-pointer rounded-2xl border px-4 py-2.5 min-w-[130px] transition-all duration-200 hover:shadow-md group
+        ${to
+          ? "bg-brand-600 border-brand-600 shadow-md shadow-brand-200"
+          : "bg-white border-ink-200 hover:border-brand-300"
+        }`}>
+        <span className={`text-[9px] font-black uppercase tracking-[0.18em] mb-0.5 transition-colors ${to ? "text-brand-200" : "text-ink-400 group-hover:text-brand-500"}`}>
           To
         </span>
+        <span className={`text-sm font-bold leading-tight transition-colors ${to ? "text-white" : "text-ink-400"}`}>
+          {to ? formatDisplay(to) : "Pick date"}
+        </span>
+        <CalendarDays className={`absolute top-2.5 right-3 h-3.5 w-3.5 transition-colors ${to ? "text-brand-300" : "text-ink-300 group-hover:text-brand-400"}`} />
         <input
           type="date"
           value={to}
           min={from}
           max={maxDate}
           onChange={(e) => onToChange(e.target.value)}
-          className={`w-[8.5rem] bg-transparent text-xs font-bold outline-none border-none cursor-pointer appearance-none [color-scheme:light] transition-colors duration-150 ${hasTo ? "text-brand-700" : "text-ink-700"}`}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        {hasTo && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-400 to-orange-400 rounded-full" />
-        )}
       </label>
 
       {/* Clear */}
@@ -68,7 +75,7 @@ export function DateRangeFilter({
         <button
           onClick={() => { onFromChange(""); onToChange(""); }}
           title="Clear dates"
-          className="flex items-center self-stretch px-3 border-l border-ink-200 text-ink-300 hover:text-white hover:bg-red-500 active:bg-red-600 transition-all duration-150"
+          className="flex items-center justify-center h-9 w-9 rounded-2xl border border-ink-200 bg-white text-ink-300 hover:bg-red-500 hover:border-red-500 hover:text-white transition-all duration-200 hover:shadow-md flex-shrink-0"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -89,35 +96,34 @@ interface SingleDateFilterProps {
 export function SingleDateFilter({
   label = "As of", value, onChange, min, max, className = "",
 }: SingleDateFilterProps) {
-  const hasValue = Boolean(value);
-
   return (
-    <div className={`group inline-flex items-center rounded-2xl overflow-hidden border bg-white shadow-sm hover:shadow-md transition-all duration-200 ${hasValue ? "border-brand-300 shadow-brand-100" : "border-ink-200 hover:border-brand-300"} ${className}`}>
-      {/* Icon badge */}
-      <span className="flex items-center self-stretch px-3.5 bg-gradient-to-br from-brand-500 to-orange-600 border-r border-brand-400">
-        <Calendar className="h-4 w-4 text-white drop-shadow-sm" />
-      </span>
-      <label className={`relative flex items-center gap-2 px-3.5 py-2.5 cursor-pointer transition-colors duration-150 ${hasValue ? "bg-brand-50/60" : "hover:bg-ink-50"}`}>
-        <span className={`text-[10px] font-extrabold uppercase tracking-widest select-none transition-colors ${hasValue ? "text-brand-600" : "text-ink-400 group-hover:text-ink-600"}`}>
+    <div className={`inline-flex items-center gap-1.5 ${className}`}>
+      <label className={`relative flex flex-col cursor-pointer rounded-2xl border px-4 py-2.5 min-w-[145px] transition-all duration-200 hover:shadow-md group
+        ${value
+          ? "bg-brand-600 border-brand-600 shadow-md shadow-brand-200"
+          : "bg-white border-ink-200 hover:border-brand-300"
+        }`}>
+        <span className={`text-[9px] font-black uppercase tracking-[0.18em] mb-0.5 transition-colors ${value ? "text-brand-200" : "text-ink-400 group-hover:text-brand-500"}`}>
           {label}
         </span>
+        <span className={`text-sm font-bold leading-tight transition-colors ${value ? "text-white" : "text-ink-400"}`}>
+          {value ? formatDisplay(value) : "Pick date"}
+        </span>
+        <CalendarDays className={`absolute top-2.5 right-3 h-3.5 w-3.5 transition-colors ${value ? "text-brand-300" : "text-ink-300 group-hover:text-brand-400"}`} />
         <input
           type="date"
           value={value}
           min={min}
           max={max}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-[8.5rem] bg-transparent text-xs font-bold outline-none border-none cursor-pointer appearance-none [color-scheme:light] ${hasValue ? "text-brand-700" : "text-ink-700"}`}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
         />
-        {hasValue && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-400 to-orange-400 rounded-full" />
-        )}
       </label>
-      {hasValue && (
+      {value && (
         <button
           onClick={() => onChange("")}
           title="Clear"
-          className="flex items-center self-stretch px-3 border-l border-ink-200 text-ink-300 hover:text-white hover:bg-red-500 active:bg-red-600 transition-all duration-150"
+          className="flex items-center justify-center h-9 w-9 rounded-2xl border border-ink-200 bg-white text-ink-300 hover:bg-red-500 hover:border-red-500 hover:text-white transition-all duration-200 hover:shadow-md flex-shrink-0"
         >
           <X className="h-3.5 w-3.5" />
         </button>
@@ -136,13 +142,21 @@ interface FormDateInputProps {
 }
 
 export function FormDateInput({ value, onChange, min, max, required, className = "" }: FormDateInputProps) {
-  const hasValue = Boolean(value);
-
   return (
-    <div className={`group relative flex items-center rounded-2xl border bg-white overflow-hidden transition-all duration-200 focus-within:ring-2 focus-within:ring-brand-300/60 focus-within:ring-offset-1 focus-within:border-brand-400 hover:border-brand-300 hover:shadow-md ${hasValue ? "border-brand-300 shadow-sm shadow-brand-100/50" : "border-ink-200 shadow-sm"} ${className}`}>
-      <span className={`flex items-center self-stretch px-3.5 border-r transition-all duration-200 ${hasValue ? "bg-gradient-to-br from-brand-500 to-orange-600 border-brand-400" : "bg-gradient-to-br from-ink-50 to-ink-100 border-ink-200 group-focus-within:from-brand-500 group-focus-within:to-orange-600 group-focus-within:border-brand-400"}`}>
-        <CalendarDays className={`h-4 w-4 drop-shadow-sm transition-colors duration-200 ${hasValue ? "text-white" : "text-ink-400 group-focus-within:text-white"}`} />
-      </span>
+    <label className={`relative flex items-center gap-3 cursor-pointer rounded-2xl border px-4 py-2.5 transition-all duration-200 hover:shadow-md group
+      ${value
+        ? "bg-brand-600 border-brand-600 shadow-sm shadow-brand-200"
+        : "bg-white border-ink-200 hover:border-brand-300 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-200 focus-within:ring-offset-1"
+      } ${className}`}>
+      <CalendarDays className={`h-4 w-4 flex-shrink-0 transition-colors ${value ? "text-brand-200" : "text-ink-400 group-hover:text-brand-500"}`} />
+      <div className="flex flex-col min-w-0">
+        <span className={`text-[9px] font-black uppercase tracking-[0.18em] leading-none mb-0.5 ${value ? "text-brand-200" : "text-ink-400"}`}>
+          Date
+        </span>
+        <span className={`text-sm font-bold leading-tight ${value ? "text-white" : "text-ink-400"}`}>
+          {value ? formatDisplay(value) : "Pick a date"}
+        </span>
+      </div>
       <input
         type="date"
         value={value}
@@ -150,11 +164,8 @@ export function FormDateInput({ value, onChange, min, max, required, className =
         max={max}
         required={required}
         onChange={(e) => onChange(e.target.value)}
-        className={`flex-1 px-3.5 py-2.5 text-sm font-semibold bg-transparent outline-none border-none cursor-pointer appearance-none [color-scheme:light] transition-colors duration-150 ${hasValue ? "text-brand-700" : "text-ink-700 placeholder:text-ink-300"}`}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
       />
-      {hasValue && (
-        <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-brand-400 via-orange-400 to-brand-300" />
-      )}
-    </div>
+    </label>
   );
 }
