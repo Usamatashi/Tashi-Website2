@@ -1,0 +1,808 @@
+# IFRS Integrated Accounting System – Architecture Improvements & Replit Prompt Pack
+
+## Current Observation
+
+Your uploaded project is currently mainly a marketing/website React project, not yet a full accounting ERP structure. However, your attached accounting design prompts clearly show you are planning a serious IFRS-based accounting system.
+
+To make the accounting tabs fully integrated and IFRS-compliant, you should design the software around ONE CENTRAL ACCOUNTING ENGINE.
+
+The biggest mistake many accounting systems make:
+
+* modules work separately
+* statements are calculated independently
+* cash book does not fully integrate with GL
+* inventory does not update COGS automatically
+* receivables/payables do not affect statements instantly
+
+Your system should instead work like:
+
+# ONE SOURCE OF TRUTH
+
+Every module:
+
+* Sales
+* Purchases
+* Inventory
+* Cash Book
+* Banking
+* Payroll
+* Expenses
+* Fixed Assets
+* VAT/GST
+* Loans
+* Production
+
+must ultimately generate:
+
+1. Journal Entries
+2. Ledger Movements
+3. Trial Balance Updates
+4. Financial Statement Updates
+
+in real time.
+
+---
+
+# Recommended Core Architecture
+
+## 1. Central Journal Engine (MOST IMPORTANT)
+
+Every transaction in every module should create journal entries automatically.
+
+Example:
+
+### Sales Invoice
+
+Dr Accounts Receivable
+Cr Sales Revenue
+Cr VAT Output
+
+### Payment Received
+
+Dr Cash/Bank
+Cr Accounts Receivable
+
+### Purchase Invoice
+
+Dr Inventory/Expense
+Dr VAT Input
+Cr Accounts Payable
+
+### Salary Posting
+
+Dr Salary Expense
+Cr Salary Payable
+
+### Depreciation
+
+Dr Depreciation Expense
+Cr Accumulated Depreciation
+
+DO NOT allow statements to calculate directly from module tables.
+
+Everything must flow through:
+
+Transaction → Journal → GL → Trial Balance → Statements
+
+---
+
+# Recommended Database Flow
+
+## Core Tables
+
+### chart_of_accounts
+
+Stores all accounts.
+
+### journal_batches
+
+Voucher header.
+
+### journal_lines
+
+Debit/credit lines.
+
+### ledger_balances
+
+Running balances.
+
+### fiscal_periods
+
+Accounting periods.
+
+### cost_centers
+
+Departments/projects.
+
+### currencies
+
+Multi-currency support.
+
+### exchange_rates
+
+Historical rates.
+
+### audit_logs
+
+Immutable audit history.
+
+---
+
+# IFRS-Compliant Integration Design
+
+# 1. General Ledger (GL)
+
+This should be the heart of the system.
+
+## Must Include
+
+* Double-entry validation
+* Auto-balancing
+* Immutable posting
+* Draft vs posted vouchers
+* Reversing journals
+* Recurring journals
+* Fiscal year close
+* Opening balances
+* Audit trail
+* User timestamp tracking
+* Source module references
+* Transaction locking after close
+
+## Important
+
+Never allow direct editing after posting.
+Use:
+
+* reverse
+* adjustment entry
+* correction journal
+
+This is IFRS/audit compliant.
+
+---
+
+# 2. Cash Book Integration
+
+Your cash book should NOT be separate from accounting.
+
+Cash book entries MUST:
+
+* instantly update cash ledger
+* update bank balances
+* update trial balance
+* update cash flow statement
+* update AR/AP allocations
+
+---
+
+# Cash Flow Statement Integration (Very Important)
+
+You specifically requested:
+
+> cash book should also make statement of cash flows automatically
+
+Correct architecture:
+
+Every cash/bank account must carry:
+
+* operating activity tag
+* investing activity tag
+* financing activity tag
+
+Then Statement of Cash Flows should auto-generate from:
+
+1. cash journals
+2. bank journals
+3. account classifications
+
+---
+
+# Recommended Cash Flow Logic
+
+## Operating Activities
+
+* customer receipts
+* supplier payments
+* salaries
+* operating expenses
+* taxes
+
+## Investing Activities
+
+* fixed asset purchase
+* asset disposal
+* investments
+
+## Financing Activities
+
+* loans
+* owner capital
+* dividends
+* lease liabilities
+
+---
+
+# Direct vs Indirect Method
+
+You should support BOTH.
+
+## Direct Method
+
+Generated from actual cash movements.
+
+## Indirect Method
+
+Generated from:
+
+Net profit
+
+* non-cash adjustments
+* working capital changes
+
+IFRS supports both.
+
+---
+
+# 3. Inventory Integration (Critical)
+
+Inventory should integrate with:
+
+* purchases
+* sales
+* returns
+* production
+* warehouse
+* GL
+* COGS
+
+---
+
+# Recommended Inventory Accounting
+
+Use:
+
+## Weighted Average Cost (Recommended)
+
+Since you already discussed WAC.
+
+System should maintain:
+
+* quantity on hand
+* inventory value
+* moving average cost
+
+Every sale:
+
+Dr COGS
+Cr Inventory
+
+automatically.
+
+---
+
+# 4. Accounts Receivable Integration
+
+AR should integrate with:
+
+* invoices
+* receipts
+* credit notes
+* aging
+* expected credit loss
+
+---
+
+# IFRS 9 Expected Credit Loss (Advanced)
+
+You should eventually support:
+
+* customer risk categories
+* overdue aging buckets
+* impairment allowance
+
+Journal:
+
+Dr Bad Debt Expense
+Cr Allowance for Expected Credit Loss
+
+---
+
+# 5. Accounts Payable Integration
+
+AP should integrate with:
+
+* vendor bills
+* payments
+* debit notes
+* withholding tax
+* aging
+
+---
+
+# 6. Fixed Assets Module
+
+Very important for IFRS.
+
+Should support:
+
+* acquisition
+* depreciation
+* disposal
+* revaluation
+* impairment
+* asset classes
+
+---
+
+# IFRS Requirements
+
+## Depreciation Methods
+
+* straight line
+* reducing balance
+* units of production
+
+## Asset Tracking
+
+* acquisition date
+* useful life
+* residual value
+* depreciation start date
+
+---
+
+# 7. Tax Module
+
+Should support:
+
+* VAT/GST
+* withholding tax
+* tax adjustments
+* tax reporting
+
+All tax postings should auto-hit GL.
+
+---
+
+# 8. Multi-Currency Support
+
+IFRS systems should be fully multi-currency.
+
+## Required Features
+
+* base currency
+* transaction currency
+* exchange gain/loss
+* historical exchange rates
+* revaluation
+
+---
+
+# Important IFRS Rule
+
+Use:
+
+* spot rate on transaction date
+* closing rate for balance sheet revaluation
+
+---
+
+# 9. Financial Statements Engine
+
+Statements should NEVER be manually coded line by line.
+
+Instead:
+
+Statement lines should map dynamically to:
+
+* account groups
+* account tags
+* IFRS classifications
+
+---
+
+# Required Statements
+
+## Statement of Financial Position
+
+(Balance Sheet)
+
+## Statement of Profit or Loss
+
+## Statement of Cash Flows
+
+## Statement of Changes in Equity
+
+## Trial Balance
+
+## General Ledger
+
+## Notes to Accounts
+
+---
+
+# 10. Audit & Compliance Layer
+
+Must include:
+
+* immutable audit trail
+* IP logging
+* user actions
+* approval workflow
+* posting permissions
+* maker/checker approval
+
+---
+
+# Recommended Account Structure (Default Chart of Accounts)
+
+# 1000 – Assets
+
+## Current Assets
+
+1100 Cash on Hand
+1110 Main Bank Account
+1120 Petty Cash
+1130 Undeposited Funds
+1140 Mobile Wallet
+
+1200 Accounts Receivable
+1210 Allowance for Doubtful Debts
+
+1300 Inventory Raw Materials
+1310 Inventory Finished Goods
+1320 Inventory Spare Parts
+1330 Inventory Adjustment
+
+1400 Prepaid Expenses
+1410 Advance to Suppliers
+1420 Tax Receivable
+1430 Input VAT
+
+## Non-Current Assets
+
+1500 Land
+1510 Buildings
+1520 Machinery
+1530 Vehicles
+1540 Office Equipment
+1550 Computer Equipment
+1560 Furniture & Fixtures
+
+1600 Accumulated Depreciation
+
+1700 Intangible Assets
+1710 Software
+1720 Goodwill
+
+---
+
+# 2000 – Liabilities
+
+## Current Liabilities
+
+2100 Accounts Payable
+2110 Accrued Expenses
+2120 Salaries Payable
+2130 VAT Payable
+2140 Withholding Tax Payable
+2150 Short-Term Loans
+2160 Lease Liability Current
+
+## Non-Current Liabilities
+
+2200 Long-Term Loans
+2210 Lease Liability Non-Current
+2220 Deferred Tax Liability
+
+---
+
+# 3000 – Equity
+
+3100 Owner Capital
+3110 Share Capital
+3120 Retained Earnings
+3130 Current Year Profit/Loss
+3140 Drawings
+3150 Revaluation Reserve
+
+---
+
+# 4000 – Revenue
+
+4100 Sales Revenue
+4110 Sales Returns
+4120 Service Revenue
+4130 Other Income
+4140 Foreign Exchange Gain
+
+---
+
+# 5000 – Cost of Sales
+
+5100 Cost of Goods Sold
+5110 Purchase Variance
+5120 Freight Inward
+
+---
+
+# 6000 – Operating Expenses
+
+6100 Salaries Expense
+6110 Rent Expense
+6120 Utilities Expense
+6130 Internet Expense
+6140 Marketing Expense
+6150 Fuel Expense
+6160 Repair & Maintenance
+6170 Insurance Expense
+6180 Office Expense
+6190 Printing & Stationery
+6200 Depreciation Expense
+6210 Software Subscription Expense
+6220 Legal & Professional Expense
+6230 Travel Expense
+6240 Bank Charges
+6250 Bad Debt Expense
+6260 Security Expense
+6270 Telephone Expense
+
+---
+
+# 7000 – Financial Accounts
+
+7100 Interest Expense
+7110 Interest Income
+7120 Foreign Exchange Loss
+
+---
+
+# Recommended System Integration Rules
+
+## Rule 1
+
+Every transaction MUST create journal entries.
+
+## Rule 2
+
+No module should update statements directly.
+
+## Rule 3
+
+Trial balance should be the source for statements.
+
+## Rule 4
+
+Cash flow statement should derive from cash ledger classifications.
+
+## Rule 5
+
+Inventory movement should automatically create accounting entries.
+
+## Rule 6
+
+All reports should support:
+
+* date filters
+* branch filters
+* project filters
+* cost centers
+* currency filters
+
+## Rule 7
+
+Every posted transaction should be immutable.
+
+---
+
+# Suggested Advanced Features
+
+## Approval Workflow
+
+* maker/checker
+* approval levels
+* posting authorization
+
+## Cost Centers
+
+* departments
+* branches
+* projects
+
+## Budgeting
+
+* budget vs actual
+* variance analysis
+
+## Consolidation
+
+* multi-company
+* group reporting
+
+## IFRS Notes Engine
+
+* note schedules
+* disclosures
+* aging notes
+* PPE schedules
+
+---
+
+# Recommended Tech Structure
+
+## Frontend
+
+React + TypeScript
+
+## Backend
+
+Node.js + Express/NestJS
+
+## Database
+
+PostgreSQL
+
+Recommended because:
+
+* strong financial data integrity
+* transactional consistency
+* concurrency handling
+
+---
+
+# Important Database Rules
+
+Use database transactions for every posting.
+
+If one journal line fails:
+
+ROLLBACK EVERYTHING.
+
+Never allow partial posting.
+
+---
+
+# Recommended Replit Prompts For Improvements
+
+# Prompt 1 – Central Accounting Engine
+
+Build a centralized accounting engine where every module transaction automatically generates double-entry journal entries. All financial statements must derive from the general ledger and trial balance only. Prevent direct statement manipulation. Include posting validation, immutable journals, reversing entries, and audit trails.
+
+---
+
+# Prompt 2 – IFRS Financial Statements
+
+Build IFRS-compliant financial statements including Statement of Financial Position, Statement of Profit or Loss, Statement of Changes in Equity, and Statement of Cash Flows using dynamic account mapping from the chart of accounts.
+
+---
+
+# Prompt 3 – Cash Flow Automation
+
+Create an automatic Statement of Cash Flows generator. Every cash and bank transaction should classify into operating, investing, or financing activities. Generate both direct and indirect method cash flow statements automatically from journal entries.
+
+---
+
+# Prompt 4 – Integrated Inventory Accounting
+
+Build perpetual inventory accounting using Weighted Average Cost. Every inventory purchase, sale, return, and adjustment must automatically update stock quantity, inventory valuation, cost of goods sold, and related journal entries.
+
+---
+
+# Prompt 5 – Accounts Receivable Integration
+
+Create a fully integrated accounts receivable module with invoices, receipts, credit notes, customer aging, payment allocation, expected credit loss provisioning, and automatic general ledger postings.
+
+---
+
+# Prompt 6 – Accounts Payable Integration
+
+Create an integrated accounts payable module supporting vendor bills, debit notes, supplier payments, withholding tax, aging reports, and automatic accounting entries.
+
+---
+
+# Prompt 7 – Fixed Assets IFRS Module
+
+Build a fixed assets register supporting acquisition, depreciation, disposal, impairment, revaluation, and multiple depreciation methods. Automatically generate depreciation journals and fixed asset schedules.
+
+---
+
+# Prompt 8 – Multi-Currency Engine
+
+Implement IFRS-compliant multi-currency accounting with transaction currency, base currency, exchange rate tables, realized and unrealized foreign exchange gain/loss calculations, and period-end revaluation.
+
+---
+
+# Prompt 9 – Dynamic Chart of Accounts
+
+Create a configurable IFRS-based chart of accounts supporting hierarchical parent-child structure, account tags, financial statement mapping, cost centers, and department/project segmentation.
+
+---
+
+# Prompt 10 – Audit & Security
+
+Implement immutable audit trails for all accounting transactions including user tracking, timestamps, IP logging, approval workflow, posting permissions, maker-checker approval, and accounting period locking.
+
+---
+
+# Prompt 11 – Reporting Engine
+
+Build a financial reporting engine where all reports derive from ledger balances and support filters for date ranges, branches, projects, departments, currencies, and cost centers.
+
+---
+
+# Prompt 12 – Accounting Database Design
+
+Design a PostgreSQL accounting database optimized for financial integrity with journal_batches, journal_lines, chart_of_accounts, ledger_balances, fiscal_periods, exchange_rates, inventory_movements, fixed_assets, tax_transactions, and audit_logs tables.
+
+---
+
+# Prompt 13 – Automatic Posting Rules
+
+Create a posting rules engine where every business event automatically maps to predefined debit and credit entries. Allow configurable accounting rules for sales, purchases, inventory, taxes, payroll, depreciation, and banking transactions.
+
+---
+
+# Prompt 14 – Trial Balance Driven Statements
+
+Refactor the system so all financial statements derive exclusively from trial balance balances generated from journal entries. Eliminate any direct calculations from sales, purchases, or inventory tables.
+
+---
+
+# Prompt 15 – Fiscal Year Closing
+
+Build year-end closing functionality including retained earnings transfer, opening balances, period locking, adjustment journals, and comparative financial statements.
+
+---
+
+# Prompt 16 – Banking Reconciliation
+
+Create bank reconciliation functionality with imported bank statements, unmatched transaction handling, reconciliation adjustments, and automatic bank ledger updates.
+
+---
+
+# Prompt 17 – Cost Center Accounting
+
+Implement cost center and project accounting where every transaction can optionally allocate amounts to departments, branches, projects, or business units for profitability analysis.
+
+---
+
+# Prompt 18 – Tax Compliance
+
+Build VAT/GST and withholding tax management with automatic tax postings, tax return summaries, invoice tax calculations, and tax ledger reconciliation.
+
+---
+
+# Prompt 19 – Performance Optimization
+
+Optimize accounting queries for large transaction volumes using indexed ledger tables, materialized views, posting queues, transaction batching, and summary balance tables.
+
+---
+
+# Prompt 20 – ERP Integration Philosophy
+
+Refactor the application into a true ERP architecture where all modules operate through a unified accounting and transaction engine. Ensure inventory, sales, purchases, banking, payroll, and financial statements remain synchronized in real time.
+
+---
+
+# Final Recommendation
+
+The single most important thing:
+
+DO NOT build accounting statements separately.
+
+Build:
+
+Unified Transaction Engine → Journal Engine → General Ledger → Trial Balance → Statements
+
+If this foundation is correct:
+
+* IFRS compliance becomes easier
+* auditing becomes easier
+* automation becomes easier
+* reconciliation becomes easier
+* scaling becomes easier
+* multi-company becomes easier
+* financial statements become reliable
+
+This architecture is how professional ERP/accounting systems are designed.
