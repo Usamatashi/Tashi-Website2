@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import "./lib/firebase.js";
+import authRouter from "./routes/auth.js";
 import websiteOrdersRouter from "./routes/website-orders.js";
 import wholesaleOrdersRouter from "./routes/wholesale-orders.js";
 import productsRouter from "./routes/products.js";
@@ -42,6 +43,7 @@ app.use(express.json({ limit: "60mb" }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
+app.use("/api/auth", authRouter);
 app.use("/api/products", productsRouter);
 app.use("/api", websiteOrdersRouter);
 app.use("/api", wholesaleOrdersRouter);

@@ -87,4 +87,17 @@ h4 {
     background: var(--color-ink-50);
     cursor: not-allowed;
   }
+
+  .input-base {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 0.875rem;
+    color: var(--color-ink-900);
+  }
+
+  .input-base::placeholder {
+    color: var(--color-ink-300);
+  }
 }
