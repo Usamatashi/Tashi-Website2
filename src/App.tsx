@@ -46,6 +46,8 @@ const AdminJournals = lazy(() => import("@/pages/AdminJournals"));
 const AdminCashBook = lazy(() => import("@/pages/AdminCashBook"));
 const AdminFinancialReports = lazy(() => import("@/pages/AdminFinancialReports"));
 const AdminOrderPrint = lazy(() => import("@/pages/AdminOrderPrint"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const DeleteAccount = lazy(() => import("@/pages/DeleteAccount"));
 
 function PageLoader() {
   return (
@@ -121,6 +123,8 @@ export default function App() {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+            <Route path="/policy" element={<PrivacyPolicy />} />
+            <Route path="/delete-account" element={<DeleteAccount />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
