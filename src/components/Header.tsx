@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Menu, X, ShoppingCart, LogIn } from "lucide-react";
+import { Menu, X, ShoppingCart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/cart";
 
@@ -62,17 +62,6 @@ export default function Header() {
 
         <div className="hidden items-center gap-3 lg:flex">
           <CartButton itemCount={itemCount} />
-          <Link
-            to="/admin/login"
-            className="group relative inline-flex items-center gap-1.5 overflow-hidden rounded-full bg-gradient-to-br from-brand-500 to-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-brand-500/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-brand-500/40"
-          >
-            <span
-              aria-hidden="true"
-              className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 group-hover:translate-x-full"
-            />
-            <LogIn className="relative h-4 w-4" />
-            <span className="relative">Login</span>
-          </Link>
         </div>
 
         <div className="flex items-center gap-1 lg:hidden">
@@ -108,14 +97,6 @@ export default function Header() {
                 {item.label}
               </NavLink>
             ))}
-            <Link
-              to="/admin/login"
-              onClick={() => setOpen(false)}
-              className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-md bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white"
-            >
-              <LogIn className="h-4 w-4" />
-              Login
-            </Link>
           </nav>
         </div>
       )}
